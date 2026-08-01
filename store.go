@@ -11,7 +11,7 @@ import (
 )
 
 // entry is one line of the catalogue: level 1 of the specification's
-// progressive disclosure, and the only thing lore will ever send to a
+// progressive disclosure, and the only thing brief will ever send to a
 // model. The body lives on disk until something names the skill.
 type entry struct {
 	name string // the directory name, which is what an agent resolves by
@@ -19,7 +19,7 @@ type entry struct {
 	desc string
 }
 
-// lorePath returns the directories searched for skills, in order.
+// briefPath returns the directories searched for skills, in order.
 //
 // It is $PATH, for skills: a colon-separated list, searched left to right,
 // first match wins. Everyone already knows those rules, and shadowing is
@@ -29,8 +29,8 @@ type entry struct {
 // An empty element is skipped rather than read as the current directory.
 // $PATH's rule there is a well-known way to run the wrong program, and
 // there is no reason to inherit a mistake that old.
-func lorePath() []string {
-	if p, ok := os.LookupEnv("LORE_PATH"); ok {
+func briefPath() []string {
+	if p, ok := os.LookupEnv("BRIEF_PATH"); ok {
 		var dirs []string
 		for _, d := range strings.Split(p, string(os.PathListSeparator)) {
 			if d != "" {
@@ -43,7 +43,7 @@ func lorePath() []string {
 	if home, err := os.UserHomeDir(); err == nil {
 		dirs = append(dirs,
 			filepath.Join(home, ".claude", "skills"),
-			filepath.Join(home, ".lore", "skills"))
+			filepath.Join(home, ".brief", "skills"))
 	}
 	return dirs
 }
@@ -57,7 +57,7 @@ func lorePath() []string {
 func catalogue() ([]entry, error) {
 	var out []entry
 	seen := map[string]bool{}
-	for _, dir := range lorePath() {
+	for _, dir := range briefPath() {
 		ents, err := os.ReadDir(dir)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -91,14 +91,14 @@ func catalogue() ([]entry, error) {
 
 // providers returns every directory on the path that holds a skill of this
 // name, nearest first. The first is the one everything else uses; the rest
-// are what `lore path -a` exists to show, because a skill being shadowed
+// are what `brief path -a` exists to show, because a skill being shadowed
 // looks exactly like a skill being ignored.
 func providers(name string) []string {
 	var dirs []string
 	if !validName(name) {
 		return nil
 	}
-	for _, dir := range lorePath() {
+	for _, dir := range briefPath() {
 		sub := filepath.Join(dir, name)
 		if isDir(sub) {
 			if _, err := os.Stat(filepath.Join(sub, "SKILL.md")); err == nil {
@@ -117,14 +117,14 @@ func providers(name string) []string {
 //	pdf-processing/references/FORMS.md
 //
 // The first element is looked up on the path when it is a legal skill name
-// — which is what makes `lore cat` safe to hand output from a model. A
+// — which is what makes `brief cat` safe to hand output from a model. A
 // name cannot contain a dot or a slash, so it can never be ./x or ../x or
 // /etc/passwd, and the remainder is checked against escaping the skill
 // directory besides.
 //
 // Anything that is not a legal name is a filesystem path, and then the
 // skill is the nearest directory at or above it holding a SKILL.md. That
-// is what lets `lore lint .` and `lore cat ./draft/SKILL.md` work in a
+// is what lets `brief lint .` and `brief cat ./draft/SKILL.md` work in a
 // directory you are still writing.
 func resolve(ref string) (dir, rel string, err error) {
 	if ref == "" {
@@ -141,7 +141,7 @@ func resolve(ref string) (dir, rel string, err error) {
 		}
 	}
 	if !strings.ContainsAny(ref, "/.") {
-		return "", "", fmt.Errorf("no skill %q on %s", ref, strings.Join(lorePath(), string(os.PathListSeparator)))
+		return "", "", fmt.Errorf("no skill %q on %s", ref, strings.Join(briefPath(), string(os.PathListSeparator)))
 	}
 	return locate(ref)
 }
@@ -197,7 +197,7 @@ func inside(rel string) (string, error) {
 }
 
 // contents lists the files a skill bundles — level 3 — as paths relative
-// to the skill, sorted, so `lore ls name` names exactly what `lore cat
+// to the skill, sorted, so `brief ls name` names exactly what `brief cat
 // name/<path>` will read. Symbolic links are listed but not followed:
 // walking them turns a catalogue into an unbounded search of a filesystem
 // somebody else laid out.

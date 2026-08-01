@@ -17,7 +17,7 @@ import (
 // that needs a language model to be right is not a test.
 
 // exec runs argv with stdin bound to text ("" means a terminal, the way an
-// interactive shell invokes lore) and captures the streams separately,
+// interactive shell invokes brief) and captures the streams separately,
 // because which stream carried what is itself under test.
 func exec(t *testing.T, stdin string, argv ...string) (code int, stdout, stderr string) {
 	t.Helper()
@@ -88,11 +88,11 @@ func tree(t *testing.T, files map[string]string) string {
 	return dir
 }
 
-// withPath points lore at these directories and nothing else, so a test
+// withPath points brief at these directories and nothing else, so a test
 // never sees the skills the developer happens to have installed.
 func withPath(t *testing.T, dirs ...string) {
 	t.Helper()
-	t.Setenv("LORE_PATH", strings.Join(dirs, string(os.PathListSeparator)))
+	t.Setenv("BRIEF_PATH", strings.Join(dirs, string(os.PathListSeparator)))
 }
 
 // skillFile is the shortest thing that is a valid skill.
@@ -111,7 +111,7 @@ func oneSkill(t *testing.T) string {
 }
 
 // TestExitContract is the whole promise in one test: yes is 0, no is 1,
-// and broken is 2 — so `lore find x || fallback` fires on nothing found
+// and broken is 2 — so `brief find x || fallback` fires on nothing found
 // and not on an unreadable directory.
 func TestExitContract(t *testing.T) {
 	withPath(t, oneSkill(t))
@@ -128,7 +128,7 @@ func TestExitContract(t *testing.T) {
 }
 
 // TestNoMatchPrintsNothing pins the half of the contract a pipeline
-// depends on: a "no" leaves stdout empty, so `lore cat $(lore find ...)`
+// depends on: a "no" leaves stdout empty, so `brief cat $(brief find ...)`
 // cannot be handed a diagnostic as if it were a name.
 func TestNoMatchPrintsNothing(t *testing.T) {
 	withPath(t, oneSkill(t))
@@ -245,7 +245,7 @@ func TestRefsCannotLeaveTheSkill(t *testing.T) {
 }
 
 // TestFindReadsStdinOnlyWhenItHasTo. A task can arrive in a pipe, which is
-// what makes lore a filter rather than a command that happens to take
+// what makes brief a filter rather than a command that happens to take
 // words. A task in argv ends the question there: reading a stdin nobody
 // meant to send is how find hangs inside a loop that inherited a pipe, and
 // a command that waits forever is a worse answer than a narrow one.
@@ -268,7 +268,7 @@ func TestFindReadsStdinOnlyWhenItHasTo(t *testing.T) {
 func TestHelpStreams(t *testing.T) {
 	for _, argv := range [][]string{{"help"}, {"-h"}, {"--help"}} {
 		code, out, errs := exec(t, "", argv...)
-		if code != exitYes || !strings.HasPrefix(out, "lore —") || errs != "" {
+		if code != exitYes || !strings.HasPrefix(out, "brief —") || errs != "" {
 			t.Fatalf("%v: code %d, stdout %q, stderr %q", argv, code, first(out), errs)
 		}
 	}
@@ -294,7 +294,7 @@ func TestUnknownCommandSuggestsCat(t *testing.T) {
 	if code != exitErr || out != "" {
 		t.Fatalf("code %d, stdout %q", code, out)
 	}
-	if !strings.Contains(errs, "lore cat pdf-processing") {
+	if !strings.Contains(errs, "brief cat pdf-processing") {
 		t.Fatalf("no suggestion: %q", errs)
 	}
 	if _, _, errs := exec(t, "", "frobnicate"); !strings.Contains(errs, "commands are") {
@@ -383,7 +383,7 @@ func TestPromptIsAValue(t *testing.T) {
 		t.Fatalf("code %d, %q", code, first(out))
 	}
 	if strings.TrimSpace(out) != strings.TrimSpace(selectPrompt(1)) {
-		t.Fatal("lore prompt is not the prompt that is sent")
+		t.Fatal("brief prompt is not the prompt that is sent")
 	}
 	_, three, _ := exec(t, "", "prompt", "-n", "3")
 	if !strings.Contains(three, "at most 3") {
@@ -394,7 +394,7 @@ func TestPromptIsAValue(t *testing.T) {
 func TestVersionIsOneNumber(t *testing.T) {
 	for _, argv := range [][]string{{"version"}, {"-V"}, {"--version"}} {
 		code, out, _ := exec(t, "", argv...)
-		if code != exitYes || out != "lore "+version+"\n" {
+		if code != exitYes || out != "brief "+version+"\n" {
 			t.Fatalf("%v: code %d, %q", argv, code, out)
 		}
 	}
@@ -427,15 +427,15 @@ func TestUsageFitsEightyColumns(t *testing.T) {
 // TestDocsCoverEveryCommand guards the whole rather than the parts: a
 // flag-by-flag check stays green while an entire verb goes undocumented.
 func TestDocsCoverEveryCommand(t *testing.T) {
-	readme, man := read(t, "README.md"), read(t, "lore.1")
+	readme, man := read(t, "README.md"), read(t, "brief.1")
 	for _, verb := range []string{"ls", "cat", "find", "lint", "new", "path", "prompt", "version", "help"} {
-		if !strings.Contains(usageText, "lore "+verb) {
-			t.Errorf("lore help does not mention %q", verb)
+		if !strings.Contains(usageText, "brief "+verb) {
+			t.Errorf("brief help does not mention %q", verb)
 		}
-		if !strings.Contains(man, "lore "+verb) && !strings.Contains(man, "lore \\fB"+verb) {
-			t.Errorf("lore.1 does not mention %q", verb)
+		if !strings.Contains(man, "brief "+verb) && !strings.Contains(man, "brief \\fB"+verb) {
+			t.Errorf("brief.1 does not mention %q", verb)
 		}
-		if !strings.Contains(readme, "lore "+verb) {
+		if !strings.Contains(readme, "brief "+verb) {
 			t.Errorf("README.md does not mention %q", verb)
 		}
 	}
@@ -444,7 +444,7 @@ func TestDocsCoverEveryCommand(t *testing.T) {
 // TestDocsCoverEveryFlag walks the real flag sets rather than a list
 // somebody has to remember to update.
 func TestDocsCoverEveryFlag(t *testing.T) {
-	man := read(t, "lore.1")
+	man := read(t, "brief.1")
 	for verb, flags := range map[string][]string{
 		"find":   {"-ask", "-n", "-v", "-q"},
 		"lint":   {"-strict", "-q"},
@@ -454,10 +454,10 @@ func TestDocsCoverEveryFlag(t *testing.T) {
 	} {
 		for _, f := range flags {
 			if !strings.Contains(usageText, f) {
-				t.Errorf("lore help does not document %s %s", verb, f)
+				t.Errorf("brief help does not document %s %s", verb, f)
 			}
 			if !strings.Contains(man, "\\fB\\"+f) {
-				t.Errorf("lore.1 does not document %s %s", verb, f)
+				t.Errorf("brief.1 does not document %s %s", verb, f)
 			}
 		}
 	}
@@ -466,13 +466,13 @@ func TestDocsCoverEveryFlag(t *testing.T) {
 // TestEnvVarsAreDocumented. An environment variable nobody can discover is
 // a setting that does not exist.
 func TestEnvVarsAreDocumented(t *testing.T) {
-	man := read(t, "lore.1")
-	for _, v := range []string{"LORE_PATH", "LORE_MODEL", "LORE_DIR", "ASK"} {
+	man := read(t, "brief.1")
+	for _, v := range []string{"BRIEF_PATH", "BRIEF_MODEL", "BRIEF_DIR", "ASK"} {
 		if !strings.Contains(usageText, v) {
-			t.Errorf("lore help does not document %s", v)
+			t.Errorf("brief help does not document %s", v)
 		}
 		if !strings.Contains(man, v) {
-			t.Errorf("lore.1 does not document %s", v)
+			t.Errorf("brief.1 does not document %s", v)
 		}
 	}
 }
@@ -480,32 +480,32 @@ func TestEnvVarsAreDocumented(t *testing.T) {
 // TestManPageLints holds the man page to what man(1) and every lint in the
 // world expect: pure ASCII, a .TH, and the sections a reader looks for.
 func TestManPageLints(t *testing.T) {
-	man := read(t, "lore.1")
-	if !strings.HasPrefix(man, ".TH LORE 1 ") {
+	man := read(t, "brief.1")
+	if !strings.HasPrefix(man, ".TH BRIEF 1 ") {
 		t.Error("no .TH line")
 	}
 	for i, line := range strings.Split(man, "\n") {
 		for _, r := range line {
 			if r > 127 {
-				t.Errorf("lore.1:%d: non-ASCII %q — use a roff escape", i+1, r)
+				t.Errorf("brief.1:%d: non-ASCII %q — use a roff escape", i+1, r)
 				break
 			}
 		}
 		if strings.HasSuffix(line, " ") {
-			t.Errorf("lore.1:%d: trailing space", i+1)
+			t.Errorf("brief.1:%d: trailing space", i+1)
 		}
 	}
 	for _, sec := range []string{".SH NAME", ".SH SYNOPSIS", ".SH DESCRIPTION", ".SH COMMANDS", ".SH ENVIRONMENT", ".SH EXIT STATUS", ".SH EXAMPLES", ".SH SEE ALSO"} {
 		if !strings.Contains(man, sec) {
-			t.Errorf("lore.1 has no %s", sec)
+			t.Errorf("brief.1 has no %s", sec)
 		}
 	}
-	if !strings.Contains(man, "lore "+version) {
-		t.Errorf("lore.1 does not name version %s", version)
+	if !strings.Contains(man, "brief "+version) {
+		t.Errorf("brief.1 does not name version %s", version)
 	}
 }
 
-// TestTheSpecificationsNumbersAreQuotedCorrectly. Every limit lore
+// TestTheSpecificationsNumbersAreQuotedCorrectly. Every limit brief
 // enforces is the specification's, and a linter that invents a number is
 // worse than no linter.
 func TestTheSpecificationsNumbersAreQuotedCorrectly(t *testing.T) {
@@ -525,10 +525,10 @@ func TestTheSpecificationsNumbersAreQuotedCorrectly(t *testing.T) {
 			t.Errorf("%s limit is %d, the specification says %d", k, got[k], v)
 		}
 	}
-	man := read(t, "lore.1")
+	man := read(t, "brief.1")
 	for _, n := range []string{"64", "1024", "500"} {
 		if !strings.Contains(man, n) {
-			t.Errorf("lore.1 does not quote the limit %s", n)
+			t.Errorf("brief.1 does not quote the limit %s", n)
 		}
 	}
 }

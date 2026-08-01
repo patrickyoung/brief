@@ -39,8 +39,8 @@ func validName(s string) bool {
 // SKILL.md holding YAML frontmatter — what this is, and when to use it —
 // followed by Markdown instructions.
 //
-// The fields are the specification's fields and nothing else. lore does
-// not add any, because a field only lore understands is a field no agent
+// The fields are the specification's fields and nothing else. brief does
+// not add any, because a field only brief understands is a field no agent
 // will act on, and a skill that only works here is not a skill.
 type skill struct {
 	dir  string // the directory; its basename is the name skills resolve by

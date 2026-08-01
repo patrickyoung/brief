@@ -1,15 +1,15 @@
-// Command lore finds the skill that fits a task and prints it on stdout.
+// Command brief finds the skill that fits a task and prints it on stdout.
 //
 // A skill is a directory holding a SKILL.md — YAML frontmatter saying what
 // it does and when to use it, then Markdown instructions — as laid out by
-// the Agent Skills specification. lore is the catalogue of them, as a
+// the Agent Skills specification. brief is the catalogue of them, as a
 // filter: it lists, it chooses, it prints, and it stops there. Nothing
 // here runs a skill, because a filter that also executed things would be
 // an agent, and there is already one of those on the other end of the pipe.
 //
 // It is the companion to ask, and the seam between them is a pipe:
 //
-//	ask -S "$(ask system; lore cat pdf-processing)" "pull the tables"
+//	ask -S "$(ask system; brief cat pdf-processing)" "pull the tables"
 package main
 
 import (
@@ -24,10 +24,10 @@ import (
 
 const version = "0.1.0"
 
-// The exit contract, in one place. It is grep's, not ask's: lore answers
+// The exit contract, in one place. It is grep's, not ask's: brief answers
 // questions with a yes or a no, and both are ordinary outcomes a script
 // branches on. Something being broken is the third case and gets its own
-// code, so `lore find x || fallback` cannot be silently triggered by an
+// code, so `brief find x || fallback` cannot be silently triggered by an
 // unreadable directory.
 const (
 	exitYes = 0
@@ -35,22 +35,22 @@ const (
 	exitErr = 2
 )
 
-const usageText = `lore — find the skill that fits a task, and print it on stdout
+const usageText = `brief — find the skill that fits a task, and print it on stdout
 
-  lore ls [ref]             list every skill, or the files inside one
-  lore cat ref...           print a skill's instructions, or one of its files
-  lore find [flags] task    name the skill that fits a task
-  lore lint [flags] [path]  check skills against the Agent Skills spec
-  lore new [flags] name     write a new skill that already passes lint
-  lore path [flags] name    print the directory a skill lives in
-  lore prompt [flags]       print the system prompt find -ask sends
-  lore version              print the version (-V, --version)
-  lore help                 print this summary (-h, --help)
+  brief ls [ref]             list every skill, or the files inside one
+  brief cat ref...           print a skill's instructions, or one of its files
+  brief find [flags] task    name the skill that fits a task
+  brief lint [flags] [path]  check skills against the Agent Skills spec
+  brief new [flags] name     write a new skill that already passes lint
+  brief path [flags] name    print the directory a skill lives in
+  brief prompt [flags]       print the system prompt find -ask sends
+  brief version              print the version (-V, --version)
+  brief help                 print this summary (-h, --help)
 
 a skill is a directory with a SKILL.md in it: frontmatter saying what it
 does and when to use it, then the instructions. A ref is a skill's name, or
 a name and a path inside it — pdf-processing/references/FORMS.md. Names
-resolve on $LORE_PATH left to right, first match wins, exactly like $PATH.
+resolve on $BRIEF_PATH left to right, first match wins, exactly like $PATH.
 
 progressive disclosure is a pipeline, not a runtime. ls is level 1: a name
 and a description, a few hundred tokens for the whole catalogue. cat is
@@ -58,9 +58,9 @@ level 2: the instructions for the one skill you named. cat of a ref inside
 a skill is level 3. Nothing reads a level nobody asked for, and find -ask
 sends level 1 and never anything else.
 
-the pair: lore chooses and prints, ask answers.
-  ask -S "$(ask system; lore cat web-perf)" "why is this slow?" < trace.json
-  ask -S "$(ask system; lore cat $(lore find -ask "$t"))" "$t"
+the pair: brief chooses and prints, ask answers.
+  ask -S "$(ask system; brief cat web-perf)" "why is this slow?" < trace.json
+  ask -S "$(ask system; brief cat $(brief find -ask "$t"))" "$t"
 
 flags:
   find:  -ask       choose with a model by running ask, not by matching words
@@ -74,11 +74,11 @@ flags:
   path:  -a         print every directory holding the name, not just the first
   prompt: -n num    the limit the prompt states (default 1)
 
-env: LORE_PATH  where skills live (default .claude/skills, ~/.claude/skills,
-       ~/.lore/skills), searched left to right
-     LORE_MODEL the model find -ask uses, when it should not be $ASK_MODEL
-     LORE_DIR   where find -ask keeps its ask sessions (default ~/.lore)
-     ASK        the ask binary to run (default: ask, found on $PATH)
+env: BRIEF_PATH  where skills live (default .claude/skills, ~/.claude/skills,
+       ~/.brief/skills), searched left to right
+     BRIEF_MODEL the model find -ask uses, when it should not be $ASK_MODEL
+     BRIEF_DIR   where find -ask keeps its ask sessions (default ~/.brief)
+     ASK         the ask binary to run (default: ask, found on $PATH)
 exit: 0 yes · 1 no — nothing matched, or lint had something to say · 2 error
 `
 
@@ -107,20 +107,20 @@ func run(args []string) int {
 	case "prompt":
 		return cmdPrompt(args[1:])
 	case "version", "-V", "--version":
-		fmt.Printf("lore %s\n", version)
+		fmt.Printf("brief %s\n", version)
 		return exitYes
 	case "help", "-h", "--help":
 		fmt.Print(usageText)
 		return exitYes
 	}
-	fmt.Fprintf(os.Stderr, "lore: unknown command %q\n", args[0])
+	fmt.Fprintf(os.Stderr, "brief: unknown command %q\n", args[0])
 	// The most likely mistake is naming a skill where a verb goes, and the
 	// answer to it is one word long. Saying so beats printing the whole
 	// usage at somebody who was one word away.
 	if len(providers(args[0])) > 0 {
-		fmt.Fprintf(os.Stderr, "lore: did you mean: lore cat %s\n", args[0])
+		fmt.Fprintf(os.Stderr, "brief: did you mean: brief cat %s\n", args[0])
 	} else {
-		fmt.Fprintln(os.Stderr, "lore: commands are ls, cat, find, lint, new, path, prompt, version, help")
+		fmt.Fprintln(os.Stderr, "brief: commands are ls, cat, find, lint, new, path, prompt, version, help")
 	}
 	return exitErr
 }
@@ -130,7 +130,7 @@ func run(args []string) int {
 // the second is what it can reach for afterwards.
 func cmdLs(args []string) int {
 	fs := flag.NewFlagSet("ls", flag.ContinueOnError)
-	usage(fs, "lore ls [ref]")
+	usage(fs, "brief ls [ref]")
 	if err := fs.Parse(args); err != nil {
 		return usageCode(fs, err)
 	}
@@ -170,7 +170,7 @@ func cmdLs(args []string) int {
 // (ref/SKILL.md) gives the file, byte for byte.
 func cmdCat(args []string) int {
 	fs := flag.NewFlagSet("cat", flag.ContinueOnError)
-	usage(fs, "lore cat ref...")
+	usage(fs, "brief cat ref...")
 	if err := fs.Parse(args); err != nil {
 		return usageCode(fs, err)
 	}
@@ -229,7 +229,7 @@ func cmdFind(args []string) int {
 		verbose = fs.Bool("v", false, "explain the ranking on stderr")
 		quiet   = fs.Bool("q", false, "no progress on stderr")
 	)
-	usage(fs, "lore find [flags] task...")
+	usage(fs, "brief find [flags] task...")
 	if err := fs.Parse(args); err != nil {
 		return usageCode(fs, err)
 	}
@@ -249,7 +249,7 @@ func cmdFind(args []string) int {
 	}
 	if len(cat) == 0 {
 		if !*quiet {
-			fmt.Fprintf(os.Stderr, "lore: no skills on %s\n", strings.Join(lorePath(), string(os.PathListSeparator)))
+			fmt.Fprintf(os.Stderr, "brief: no skills on %s\n", strings.Join(briefPath(), string(os.PathListSeparator)))
 		}
 		return exitNo
 	}
@@ -267,7 +267,7 @@ func cmdFind(args []string) int {
 	hits := rank(cat, task)
 	if *verbose {
 		for _, h := range hits {
-			fmt.Fprintf(os.Stderr, "lore: %-24s %6.2f  %s\n", h.name, h.score, strings.Join(h.hits, " "))
+			fmt.Fprintf(os.Stderr, "brief: %-24s %6.2f  %s\n", h.name, h.score, strings.Join(h.hits, " "))
 		}
 	}
 	for i, h := range hits {
@@ -288,7 +288,7 @@ func cmdLint(args []string) int {
 		strict = fs.Bool("strict", false, "treat warnings as errors")
 		quiet  = fs.Bool("q", false, "print nothing; the exit status is the answer")
 	)
-	usage(fs, "lore lint [flags] [path...]")
+	usage(fs, "brief lint [flags] [path...]")
 	if err := fs.Parse(args); err != nil {
 		return usageCode(fs, err)
 	}
@@ -298,7 +298,7 @@ func cmdLint(args []string) int {
 	}
 	if len(targets) == 0 {
 		if !*quiet {
-			fmt.Fprintln(os.Stderr, "lore: no skills to check")
+			fmt.Fprintln(os.Stderr, "brief: no skills to check")
 		}
 		return exitYes
 	}
@@ -316,14 +316,14 @@ func cmdLint(args []string) int {
 		}
 	}
 	if !*quiet {
-		fmt.Fprintf(os.Stderr, "lore: %d skill(s), %d error(s), %d warning(s)\n", len(targets), errs, warns)
+		fmt.Fprintf(os.Stderr, "brief: %d skill(s), %d error(s), %d warning(s)\n", len(targets), errs, warns)
 	}
 	return found(errs == 0 && !(*strict && warns > 0))
 }
 
 // lintTargets expands the arguments into skill directories. A directory
 // that is a skill is checked; a directory of skills has each of them
-// checked, which is what makes `lore lint ~/.claude/skills` mean what a
+// checked, which is what makes `brief lint ~/.claude/skills` mean what a
 // person expects it to mean.
 func lintTargets(args []string) ([]string, error) {
 	if len(args) == 0 {
@@ -377,7 +377,7 @@ func lintTargets(args []string) ([]string, error) {
 func cmdPath(args []string) int {
 	fs := flag.NewFlagSet("path", flag.ContinueOnError)
 	all := fs.Bool("a", false, "print every directory holding the name")
-	usage(fs, "lore path [flags] name")
+	usage(fs, "brief path [flags] name")
 	if err := fs.Parse(args); err != nil {
 		return usageCode(fs, err)
 	}
@@ -387,7 +387,7 @@ func cmdPath(args []string) int {
 	dirs := providers(fs.Arg(0))
 	if len(dirs) == 0 {
 		// Not on the path is a "no", not a failure — but a directory sitting
-		// right there under a name lore cannot resolve is worth saying out
+		// right there under a name brief cannot resolve is worth saying out
 		// loud, because it looks installed and is not.
 		if dir, _, err := resolve(fs.Arg(0)); err == nil {
 			fmt.Println(dir)
@@ -407,7 +407,7 @@ func cmdPath(args []string) int {
 func cmdPrompt(args []string) int {
 	fs := flag.NewFlagSet("prompt", flag.ContinueOnError)
 	n := fs.Int("n", 1, "the limit the prompt states")
-	usage(fs, "lore prompt [flags]")
+	usage(fs, "brief prompt [flags]")
 	if err := fs.Parse(args); err != nil {
 		return usageCode(fs, err)
 	}
@@ -425,10 +425,10 @@ func cmdPrompt(args []string) int {
 const maxTask = 1 << 20
 
 // taskFrom takes the task from argv, or from stdin when argv is empty, so
-// lore sits in a pipeline: `git log -1 | lore find -ask`.
+// brief sits in a pipeline: `git log -1 | brief find -ask`.
 //
 // Argv wins outright rather than composing with stdin, which is where ask
-// and lore differ on purpose. ask has two roles for its input — the
+// and brief differ on purpose. ask has two roles for its input — the
 // instruction and the evidence — and needs both. A task is one phrase,
 // there is nothing for a second source to be, and reading a stdin nobody
 // meant to send would hang `find` inside any loop that inherited a pipe.
@@ -460,7 +460,7 @@ func found(yes bool) int {
 }
 
 func fail(err error) int {
-	fmt.Fprintln(os.Stderr, "lore:", err)
+	fmt.Fprintln(os.Stderr, "brief:", err)
 	return exitErr
 }
 
@@ -477,7 +477,7 @@ func usage(fs *flag.FlagSet, synopsis string) {
 
 // usageCode maps a flag parse error to an exit code. Help that was asked
 // for is the output of a successful command, so it goes to stdout and
-// `lore find -h | less` works; a misuse is a diagnostic, so it goes to
+// `brief find -h | less` works; a misuse is a diagnostic, so it goes to
 // stderr and leaves stdout empty for whatever was parsing it.
 func usageCode(fs *flag.FlagSet, err error) int {
 	if errors.Is(err, flag.ErrHelp) {
@@ -486,20 +486,20 @@ func usageCode(fs *flag.FlagSet, err error) int {
 		return exitYes
 	}
 	fs.SetOutput(os.Stderr)
-	fmt.Fprintln(os.Stderr, "lore:", err)
+	fmt.Fprintln(os.Stderr, "brief:", err)
 	fs.Usage()
 	return exitErr
 }
 
 // usageErr reports a command called with the wrong arguments. Go's flag
-// package stops at the first thing that is not a flag, so `lore new x -d
+// package stops at the first thing that is not a flag, so `brief new x -d
 // dir` leaves -d sitting in the arguments — which is a confusing way to
 // be told the argument count is wrong, and worth one line to explain.
 func usageErr(fs *flag.FlagSet) int {
 	fs.SetOutput(os.Stderr)
 	for _, a := range fs.Args() {
 		if strings.HasPrefix(a, "-") {
-			fmt.Fprintf(os.Stderr, "lore: %s must come before the arguments, not after\n", a)
+			fmt.Fprintf(os.Stderr, "brief: %s must come before the arguments, not after\n", a)
 			break
 		}
 	}

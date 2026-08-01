@@ -10,8 +10,8 @@ import (
 	"unicode/utf8"
 )
 
-// skeleton is what `lore new` writes. It is a skill, not a form: it passes
-// `lore lint -strict` on the way out, and the parts an author must replace
+// skeleton is what `brief new` writes. It is a skill, not a form: it passes
+// `brief lint -strict` on the way out, and the parts an author must replace
 // are the parts that say something false about their own skill, so leaving
 // one in is conspicuous rather than quietly shipped.
 //
@@ -51,7 +51,7 @@ func cmdNew(args []string) int {
 		dir   = fs.String("d", ".", "create the skill under this directory")
 		force = fs.Bool("f", false, "overwrite an existing SKILL.md")
 	)
-	usage(fs, "lore new [flags] name")
+	usage(fs, "brief new [flags] name")
 	if err := fs.Parse(args); err != nil {
 		return usageCode(fs, err)
 	}

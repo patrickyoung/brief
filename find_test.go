@@ -8,7 +8,7 @@ import (
 )
 
 // fakeAsk installs a stand-in for ask that records exactly how it was
-// called and answers with reply. Every assertion about what lore sends a
+// called and answers with reply. Every assertion about what brief sends a
 // model is made against what this recorded, which is the only place the
 // disclosure invariant can be checked from: the claim is about bytes that
 // left the process, not about intentions in the source.
@@ -29,7 +29,7 @@ func fakeAsk(t *testing.T, reply string, code int) string {
 		t.Fatal(err)
 	}
 	t.Setenv("ASK", bin)
-	t.Setenv("LORE_DIR", filepath.Join(dir, "lore"))
+	t.Setenv("BRIEF_DIR", filepath.Join(dir, "brief"))
 	return dir
 }
 
@@ -88,7 +88,7 @@ func TestFindAskSendsLevelOneAndNothingElse(t *testing.T) {
 		}
 	}
 	// The catalogue on stdin is the same bytes ls prints. If those two ever
-	// drift, `lore ls | ask ...` stops being the thing lore automates.
+	// drift, `brief ls | ask ...` stops being the thing brief automates.
 	_, listing, _ := exec(t, "", "ls")
 	if recorded(t, dir, "stdin") != listing {
 		t.Fatalf("what was sent is not what ls prints:\n%q\n%q", recorded(t, dir, "stdin"), listing)
@@ -97,12 +97,12 @@ func TestFindAskSendsLevelOneAndNothingElse(t *testing.T) {
 
 // TestFindAskKeepsItsOwnConversation. Choosing a skill must not become a
 // turn in the conversation the skill is about to be used for: ask
-// continues by default, and a caller who ran lore would find their next
+// continues by default, and a caller who ran brief would find their next
 // question answered with a catalogue on the model's mind.
 func TestFindAskKeepsItsOwnConversation(t *testing.T) {
 	withPath(t, catalogueTree(t))
 	dir := fakeAsk(t, "web-perf\n", 0)
-	t.Setenv("LORE_MODEL", "anthropic/cheap-model")
+	t.Setenv("BRIEF_MODEL", "anthropic/cheap-model")
 
 	if code, _, _ := exec(t, "", "find", "-ask", "-q", "slow page"); code != exitYes {
 		t.Fatalf("code %d", code)
@@ -120,10 +120,10 @@ func TestFindAskKeepsItsOwnConversation(t *testing.T) {
 		t.Error("ask was not told to start a new conversation (-n)")
 	}
 	if !flags["-m"] || !flags["anthropic/cheap-model"] {
-		t.Error("LORE_MODEL did not reach ask")
+		t.Error("BRIEF_MODEL did not reach ask")
 	}
-	if !strings.HasPrefix(sess, filepath.Join(os.Getenv("LORE_DIR"), "find")) {
-		t.Errorf("the session is not lore's own: %q", sess)
+	if !strings.HasPrefix(sess, filepath.Join(os.Getenv("BRIEF_DIR"), "find")) {
+		t.Errorf("the session is not brief's own: %q", sess)
 	}
 	if !strings.HasSuffix(sess, ".jsonl") {
 		t.Errorf("the session is not a session: %q", sess)
@@ -137,7 +137,7 @@ func TestFindAskKeepsItsOwnConversation(t *testing.T) {
 
 // TestFindAskRefusesANameItNeverOffered. The answer is about to become a
 // path. A model inventing a plausible skill name is an ordinary event; a
-// model inventing one that lore then opens is a vulnerability.
+// model inventing one that brief then opens is a vulnerability.
 func TestFindAskRefusesANameItNeverOffered(t *testing.T) {
 	withPath(t, catalogueTree(t))
 	for _, reply := range []string{"../../etc/passwd\n", "pdf-processor\n", "/etc/passwd\n"} {
@@ -294,6 +294,31 @@ func TestRankStemsBothSides(t *testing.T) {
 		if got := stem(word); got != root {
 			t.Errorf("stem(%q) = %q, want %q", word, got, root)
 		}
+	}
+}
+
+// TestRankNeedsMoreThanACoincidence. A rare word scores highly precisely
+// because it is rare, so one incidental match beats no match at all unless
+// something stops it: "an opened box" finds a deck skill that says
+// "opened" about a file. A single word counts only when it is most of the
+// question.
+func TestRankNeedsMoreThanACoincidence(t *testing.T) {
+	cat := entries(
+		"pptx", "PowerPoint decks. Any task where a .pptx is opened, edited or created.",
+		"docx", "Word documents and templates.",
+		"pdf", "PDF files: read them, fill forms, merge them.",
+		"xlsx", "Spreadsheets, formulas and csv data.",
+	)
+	if hits := rank(cat, "customer wants a refund on an opened box"); len(hits) != 0 {
+		t.Fatalf("one incidental word out of five picked %s", hits[0].name)
+	}
+	// One word that is the whole question is still a match.
+	if hits := rank(cat, "pdf"); len(hits) == 0 || hits[0].name != "pdf" {
+		t.Fatalf("a one-word task: %+v", hits)
+	}
+	// So is a skill the task named outright.
+	if hits := rank(cat, "use the xlsx skill on this"); len(hits) == 0 || hits[0].name != "xlsx" {
+		t.Fatalf("a name in the task: %+v", hits)
 	}
 }
 

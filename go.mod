@@ -1,4 +1,4 @@
-module github.com/patrickyoung/lore
+module github.com/patrickyoung/brief
 
 go 1.26
 

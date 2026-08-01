@@ -1,6 +1,6 @@
 # The field guide
 
-What `lore` is good at, what it is not, and the recipes — measured against
+What `brief` is good at, what it is not, and the recipes — measured against
 a real machine with nine skills installed and a real `ask` account.
 
 ---
@@ -11,9 +11,9 @@ A skill is procedural knowledge someone wrote down: a directory with a
 `SKILL.md` in it. An agent is supposed to load the right one at the right
 moment and no others. Every product that supports skills builds that
 selection into itself, which means the knowledge is only usable inside that
-product. `lore` takes the other route: it makes the catalogue a filter, so
+product. `brief` takes the other route: it makes the catalogue a filter, so
 selecting a skill is a shell command and using one is a pipe. What you get
-back is portable — the same `lore cat` output is a system prompt for `ask`,
+back is portable — the same `brief cat` output is a system prompt for `ask`,
 an `--append-system-prompt` for Claude Code, or a paste into anything else.
 
 ## 2. What it is good at
@@ -21,9 +21,9 @@ an `--append-system-prompt` for Claude Code, or a paste into anything else.
 - **Turning a task into the right instructions, cheaply.** Nine skills are
   3.7 KB as a catalogue and 88 KB as instructions. Choosing reads the small
   number.
-- **Composing.** `lore cat a b` concatenates two skills. `ask system` then
+- **Composing.** `brief cat a b` concatenates two skills. `ask system` then
   a skill is a system prompt with both. Nothing here is a plugin format.
-- **Telling you when a skill is broken.** `lore lint` finds the failures
+- **Telling you when a skill is broken.** `brief lint` finds the failures
   that are otherwise silent: a name that does not match its directory, a
   `references/` file the instructions promise and nobody shipped.
 - **Being scriptable.** Names on stdout, one per line. `xargs`, `cut`,
@@ -34,23 +34,23 @@ an `--append-system-prompt` for Claude Code, or a paste into anything else.
 - **Not an agent.** It never runs a script from `scripts/`, and never will.
   If a skill says "run `scripts/extract.py`", something with tools has to
   do that. `ask` has no tools. See §8.
-- **Not a package manager.** There is no `lore install`. A skill is a
-  directory; `git clone` it where `$LORE_PATH` looks. See §3.5.
-- **Not smart by default.** `lore find` matches words. It is right about
+- **Not a package manager.** There is no `brief install`. A skill is a
+  directory; `git clone` it where `$BRIEF_PATH` looks. See §3.5.
+- **Not smart by default.** `brief find` matches words. It is right about
   most of what people type and honest about the rest — it prints nothing
   rather than guessing. `-ask` is the flag for the rest.
 
 ## 3.5. Bringing in your own skills
 
-There are three ways, and none of them involve `lore` owning anything.
+There are three ways, and none of them involve `brief` owning anything.
 
-**Write one.** `lore new` scaffolds a skill that already passes
+**Write one.** `brief new` scaffolds a skill that already passes
 `lint -strict`; put it anywhere on the path.
 
 ```
-$ lore new -d ~/.lore/skills house-style
-~/.lore/skills/house-style/SKILL.md
-$ lore ls | grep house-style
+$ brief new -d ~/.brief/skills house-style
+~/.brief/skills/house-style/SKILL.md
+$ brief ls | grep house-style
 house-style	House style. Use when a task involves house-style, or when …
 ```
 
@@ -61,39 +61,40 @@ directories, so it goes on the path as one element:
 
 ```
 $ git clone https://github.com/anthropics/skills ~/src/anthropic-skills
-$ export LORE_PATH=~/src/anthropic-skills/skills:$LORE_PATH
-$ lore ls | wc -l
+$ export BRIEF_PATH=~/src/anthropic-skills/skills:$BRIEF_PATH
+$ brief ls | wc -l
 17
 ```
 
-Those seventeen were never written with `lore` in mind, and nothing was
+Those seventeen were never written with `brief` in mind, and nothing was
 modified to make them work. Ranking picked the right skill for eleven of
 twelve realistic tasks; the twelfth ("write an announcement for the team")
 missed because `internal-comms` never says the word "announcement" — which
 is a description to fix, or a `-ask` away.
 
-`lore lint` had opinions about them too, including one hard error: a
+`brief lint` had opinions about them too, including one hard error: a
 description of 1068 characters, past the specification's cap of 1024. That
 is the kind of thing nothing else tells you, because a loader that rejects
 it does so quietly.
 
 **Point at what you already have.** If you use Claude Code, you are done —
-`.claude/skills` and `~/.claude/skills` are on the default path. `lore` is
+`.claude/skills` and `~/.claude/skills` are on the default path. `brief` is
 a reader; it does not need skills to be installed anywhere in particular,
-and `lore cat ./draft` works on a directory you are still writing.
+and `brief cat ./draft` works on a directory you are still writing.
 
 ### Order matters
 
-`$LORE_PATH` is searched left to right and the first match wins, so put the
+`$BRIEF_PATH` is searched left to right and the first match wins, so put the
 catalogue you trust most on the left and your own overrides further left
-still. `lore path -a <name>` shows what is shadowing what (§11).
+still. `brief path -a <name>` shows what is shadowing what (§11).
 
 ## 4. The pair
 
-The whole integration is that `lore` prints text and `ask -S` takes text.
+You brief the agent, then you ask it. The whole integration is that `brief`
+prints text and `ask -S` takes text.
 
 ```sh
-ask -S "$(ask system; lore cat pdf-processing)" "pull the tables from q3.pdf"
+ask -S "$(ask system; brief cat pdf-processing)" "pull the tables from q3.pdf"
 ```
 
 `ask system` first, then the skill. `ask -S` *replaces* the default system
@@ -106,8 +107,8 @@ skill is a procedure, not a personality; you want both.
 ```sh
 skilled() {
   local s
-  s=$(lore find -ask -q "$*") || { ask "$@"; return; }
-  ask -S "$(ask system; lore cat "$s")" "$@"
+  s=$(brief find -ask -q "$*") || { ask "$@"; return; }
+  ask -S "$(ask system; brief cat "$s")" "$@"
 }
 ```
 
@@ -115,7 +116,7 @@ skilled() {
 $ git diff --cached | skilled "write a commit message"
 ```
 
-The `||` is the whole design in one character: `lore find` exits 1 when
+The `||` is the whole design in one character: `brief find` exits 1 when
 nothing fits, and "nothing fits" means *ask the model normally*, not *fail*.
 A skill loaded for a task it does not suit is worse than no skill.
 
@@ -128,18 +129,18 @@ When it is not, add `-n`:
 ```sh
 skilled() {
   local s
-  s=$(lore find -ask -q "$*") || { ask -n "$@"; return; }
-  ask -n -S "$(ask system; lore cat "$s")" "$@"
+  s=$(brief find -ask -q "$*") || { ask -n "$@"; return; }
+  ask -n -S "$(ask system; brief cat "$s")" "$@"
 }
 ```
 
-`lore find -ask` never has this problem: it runs in a session of its own
+`brief find -ask` never has this problem: it runs in a session of its own
 (§6), so choosing a skill is never a turn in your conversation.
 
 ### It works with more than one
 
 ```sh
-ask -S "$(ask system; lore cat house-style commit-message)" "..."
+ask -S "$(ask system; brief cat house-style commit-message)" "..."
 ```
 
 `cat` is `cat`. Order matters only as much as it does in any prompt.
@@ -147,7 +148,7 @@ ask -S "$(ask system; lore cat house-style commit-message)" "..."
 ## 5. Choosing: the two mechanisms, and when each fails
 
 ```
-$ lore find "durable object websocket chat room"
+$ brief find "durable object websocket chat room"
 durable-objects
 ```
 
@@ -155,14 +156,16 @@ Five of those run in 18 ms total. No network, no key, no account. The
 ranking weights each word by how rare it is across the installed
 catalogue, gives a skill's own name triple weight, takes both sides down to
 a crude root so a task saying "chart" finds a description saying
-"charting", and **discards any word most of the catalogue uses** rather
-than scoring it low. `-v` shows the work:
+"charting", **discards any word most of the catalogue uses** rather than
+scoring it low, and **refuses a match that explains only one word of a
+longer question** — "a refund on an opened box" will otherwise find a slide
+skill that says "opened" about a file. `-v` shows the work:
 
 ```
-$ lore find -v -n 3 "review my worker for bad practices"
-lore: workers-best-practices     5.86  review practice
-lore: durable-objects            3.09  review practice
-lore: wrangler                   1.39  practice
+$ brief find -v -n 3 "review my worker for bad practices"
+brief: workers-best-practices     5.86  review practice
+brief: durable-objects            3.09  review practice
+brief: wrangler                   1.39  practice
 workers-best-practices
 durable-objects
 wrangler
@@ -171,7 +174,7 @@ wrangler
 Here is where it fails, and it is worth seeing:
 
 ```
-$ lore find "make my website load faster"
+$ brief find "make my website load faster"
 $ echo $?
 1
 ```
@@ -181,8 +184,8 @@ Nothing. The skill that fits is `web-perf`, whose description reads
 distinctive word with the task. A model closes that gap in about a second:
 
 ```
-$ lore find -ask "make my website load faster"
-lore: web-perf · ask replay -check ~/.lore/find/20260801-205940-a0b7e2fa.jsonl
+$ brief find -ask "make my website load faster"
+brief: web-perf · ask replay -check ~/.brief/find/20260801-205940-a0b7e2fa.jsonl
 web-perf
 ```
 
@@ -190,7 +193,7 @@ web-perf
 default for a script that runs often:
 
 ```sh
-s=$(lore find "$task") || s=$(lore find -ask -q "$task")
+s=$(brief find "$task") || s=$(brief find -ask -q "$task")
 ```
 
 Free when it can be, paid when it has to be.
@@ -201,7 +204,7 @@ Free when it can be, paid when it has to be.
 not want your best model:
 
 ```sh
-export LORE_MODEL=anthropic/claude-haiku-4-5-20251001
+export BRIEF_MODEL=anthropic/claude-haiku-4-5-20251001
 ```
 
 `$ASK` points at the binary, so a wrapper that pins anything at all works
@@ -210,14 +213,14 @@ too.
 ## 6. Every choice is replayable
 
 `-ask` never touches the conversation you are having. It runs `ask -n -f`
-into a session of `lore`'s own, and says which one:
+into a session of `brief`'s own, and says which one:
 
 ```
-$ lore find -ask "the input is a patch that needs a message"
-lore: commit-message · ask replay -check ~/.lore/find/20260801-211412-e5f11f65.jsonl
+$ brief find -ask "the input is a patch that needs a message"
+brief: commit-message · ask replay -check ~/.brief/find/20260801-211412-e5f11f65.jsonl
 commit-message
 
-$ ask replay -check ~/.lore/find/20260801-211412-e5f11f65.jsonl
+$ ask replay -check ~/.brief/find/20260801-211412-e5f11f65.jsonl
 ok: 20260801-211412-e5f11f65.jsonl replays exactly (5 events)
 ```
 
@@ -227,13 +230,13 @@ Here it is a file: which catalogue was offered, which name came back, what
 it cost. Months later `ask replay` will still render it, and `-check` will
 still prove it was not edited.
 
-Those files accumulate, one small JSONL per `-ask`. `rm -rf ~/.lore/find`
+Those files accumulate, one small JSONL per `-ask`. `rm -rf ~/.brief/find`
 whenever you like; nothing depends on them.
 
 ## 7. A worked example, start to finish
 
 ```sh
-$ cat ~/.lore/skills/commit-message/SKILL.md
+$ cat ~/.brief/skills/commit-message/SKILL.md
 ---
 name: commit-message
 description: Writes a git commit message from a diff. Use when a change needs
@@ -252,7 +255,7 @@ Read the diff. Write the message and nothing else.
 ```
 
 ```sh
-$ git show HEAD --stat | ask -q -S "$(ask system; lore cat commit-message)" \
+$ git show HEAD --stat | ask -q -S "$(ask system; brief cat commit-message)" \
     "write the commit message"
 Remove links to the private mu repository
 
@@ -266,8 +269,8 @@ model never saw the other eight skills.
 ## 7.5. Does it actually change the answer?
 
 Three A/B runs against skills from `anthropics/skills` — nothing written
-for `lore` or for `ask`, nothing modified. Same model, `-n` on both sides,
-identical question; the only difference is `lore cat X` in the system
+for `brief` or for `ask`, nothing modified. Same model, `-n` on both sides,
+identical question; the only difference is `brief cat X` in the system
 prompt.
 
 **A reference skill.** `brand-guidelines`, 2.2 KB:
@@ -278,7 +281,7 @@ $ ask -n -q -S "$(ask system)" \
   --brand-primary: #2563EB;      <- invented, a generic Tailwind palette
   --brand-accent:  #F59E0B;
 
-$ ask -n -q -S "$(ask system; lore cat brand-guidelines)" \
+$ ask -n -q -S "$(ask system; brief cat brand-guidelines)" \
     'CSS custom properties for the brand palette. Hex values only.'
   --color-orange:  #d97757;      <- the actual brand values
   --color-blue:    #6a9bcc;
@@ -294,7 +297,7 @@ cheapest for high-volume classification and what it costs:
 
 The first is a two-year-old model at a price that no longer applies. The
 second matches the skill's own table exactly. That one cost 18k input
-tokens, and `lore lint` will tell you why: the body is roughly 17,605
+tokens, and `brief lint` will tell you why: the body is roughly 17,605
 tokens against the specification's 5,000, all of it loaded the moment the
 skill is chosen. Worth it for that question; not worth it in a loop.
 
@@ -328,7 +331,7 @@ Three ways through it, in order of how often you will want them:
 would have fetched anyway, and it is one more `cat`:
 
 ```sh
-ask -S "$(ask system; lore cat pdf-processing pdf-processing/references/FORMS.md)" \
+ask -S "$(ask system; brief cat pdf-processing pdf-processing/references/FORMS.md)" \
     "which fields does this form have?" -a scan.pdf
 ```
 
@@ -336,17 +339,17 @@ ask -S "$(ask system; lore cat pdf-processing pdf-processing/references/FORMS.md
 output format, a domain glossary — procedures whose whole content is
 judgement. They work perfectly, because the judgement is the deliverable.
 
-**Give the skill to something with tools.** `lore` prints text; anything
+**Give the skill to something with tools.** `brief` prints text; anything
 that accepts a system prompt accepts it:
 
 ```sh
-claude --append-system-prompt "$(lore cat turnstile-spin)" -p "add a captcha"
-codex exec "$(lore cat wrangler)
+claude --append-system-prompt "$(brief cat turnstile-spin)" -p "add a captcha"
+codex exec "$(brief cat wrangler)
 
 Now deploy the worker."
 ```
 
-That is the payoff for `lore` not being an agent: the same catalogue serves
+That is the payoff for `brief` not being an agent: the same catalogue serves
 `ask`, Claude Code, and whatever you use next year.
 
 ## 9. Writing a skill that actually gets chosen
@@ -356,18 +359,18 @@ until after the choice is made — which means **the description is the
 skill**, as far as being found is concerned.
 
 - **Say what and when.** "Extracts tables from PDFs" is what. "Use when a
-  task involves a PDF, a scan, or a form" is when. `lore lint` warns when
+  task involves a PDF, a scan, or a form" is when. `brief lint` warns when
   the second half is missing, because it is the half selection runs on.
 - **Write the words a user would use, not the words you would.** A user
   says "my page is slow", not "Core Web Vitals". Put both in.
 - **Do not pad.** Every agent loads every description at startup, for every
-  installed skill, forever. `lore lint` warns past 600 characters for that
+  installed skill, forever. `brief lint` warns past 600 characters for that
   reason, and the specification caps it at 1024.
-- **Test it.** This is the part nobody does, and `lore` makes it one line:
+- **Test it.** This is the part nobody does, and `brief` makes it one line:
 
 ```sh
 for t in "my page is slow" "why is the site sluggish" "improve LCP"; do
-  printf '%-28s %s\n' "$t" "$(lore find "$t" || echo MISS)"
+  printf '%-28s %s\n' "$t" "$(brief find "$t" || echo MISS)"
 done
 ```
 
@@ -377,7 +380,7 @@ the ranking.
 ## 10. Keeping a catalogue honest
 
 ```
-$ lore lint
+$ brief lint
 ~/.claude/skills/cloudflare/SKILL.md:4: warning: unknown field "references"; …
 ~/.claude/skills/cloudflare/SKILL.md:11: warning: 320 file(s) in references/ …
 ~/.claude/skills/durable-objects/SKILL.md:5: warning: 3 file(s) in references/ …
@@ -385,7 +388,7 @@ $ lore lint
 ~/.claude/skills/turnstile-spin/SKILL.md:12: warning: 6 file(s) in references/ …
 ~/.claude/skills/wrangler/SKILL.md:5: warning: the body is 919 lines (the
   specification asks for under 500); move detail into references/
-lore: 9 skill(s), 0 error(s), 6 warning(s)
+brief: 9 skill(s), 0 error(s), 6 warning(s)
 ```
 
 (Lines are one per finding and unwrapped; they are shortened here to fit
@@ -399,7 +402,7 @@ instructions tell it to. Nothing tells it to.
 In CI, one line:
 
 ```yaml
-- run: lore lint -strict .claude/skills
+- run: brief lint -strict .claude/skills
 ```
 
 In a pre-commit hook, the same line with `-q`, because the exit status is
@@ -417,42 +420,42 @@ Errors — things that will actually break — are worth knowing by sight:
 
 ## 11. Three things that will bite you
 
-**Shadowing is silent.** `$LORE_PATH` is `$PATH`: `.claude/skills` in the
+**Shadowing is silent.** `$BRIEF_PATH` is `$PATH`: `.claude/skills` in the
 project shadows `~/.claude/skills`. A skill you edited in your home
 directory and cannot see any effect from is the classic symptom.
 
 ```
-$ lore path -a cloudflare
+$ brief path -a cloudflare
 /Users/you/work/api/.claude/skills/cloudflare
 /Users/you/.claude/skills/cloudflare
 ```
 
-**`lore find` says nothing rather than guessing, so unguarded substitution
-runs the wrong command.** `$(lore find "$t")` can be empty, and
-`lore cat ""` is an error, and `ask -S "" ...` is a raw model with no
+**`brief find` says nothing rather than guessing, so unguarded substitution
+runs the wrong command.** `$(brief find "$t")` can be empty, and
+`brief cat ""` is an error, and `ask -S "" ...` is a raw model with no
 system prompt at all. Always guard:
 
 ```sh
-s=$(lore find -ask "$t") || { echo "no skill" >&2; exit 1; }
+s=$(brief find -ask "$t") || { echo "no skill" >&2; exit 1; }
 ```
 
 `xargs` also does the right thing here: given no input it runs nothing,
-which is exactly the behaviour you want and the reason `lore find` prints
+which is exactly the behaviour you want and the reason `brief find` prints
 nothing rather than a diagnostic when the answer is no.
 
 **`-ask` costs a call and about a second.** Over a hundred tasks that is a
 hundred calls and two minutes of wall clock. Rank first, fall back second
-(§5), and remember that `lore ls` is only read once — if you are looping,
+(§5), and remember that `brief ls` is only read once — if you are looping,
 hoist the catalogue and choose in one batch:
 
 ```sh
-lore ls | ask -q "For each task below, name the one skill that fits or none.
+brief ls | ask -q "For each task below, name the one skill that fits or none.
 One line per task, in order, name only.
 
 $(cat tasks.txt)"
 ```
 
-That is one call for a hundred tasks. `lore find -ask` is the careful
+That is one call for a hundred tasks. `brief find -ask` is the careful
 version for one task; the shell is right there for the other shape.
 
 ---
@@ -465,8 +468,8 @@ version for one task; the shell is right there for the other shape.
 | 1 | no — nothing matched, or lint had something to say |
 | 2 | error — bad usage, unreadable skill, `ask` failed |
 
-`ask` uses 1 for error and 2 for a full context window. `lore` uses `grep`'s
+`ask` uses 1 for error and 2 for a full context window. `brief` uses `grep`'s
 convention instead, because "no skill fits" is an answer and has to be
 distinguishable from "something is broken". The one place they meet is
-`skilled()` in §4: `lore find` returning 1 falls back to a plain `ask`, and
+`skilled()` in §4: `brief find` returning 1 falls back to a plain `ask`, and
 returning 2 should not.

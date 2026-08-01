@@ -41,7 +41,7 @@ func TestSplitFindsTheFrontmatter(t *testing.T) {
 	}
 }
 
-// TestParseNamesTheLine. Every diagnostic lore prints has to point at a
+// TestParseNamesTheLine. Every diagnostic brief prints has to point at a
 // line in the file a person is looking at, not at a line in the
 // frontmatter counted separately.
 func TestParseNamesTheLine(t *testing.T) {
@@ -60,7 +60,7 @@ func TestParseNamesTheLine(t *testing.T) {
 }
 
 // TestParseKeepsWhatItDoesNotUnderstand. Real skills carry fields the
-// specification never defined; refusing to read one would make lore
+// specification never defined; refusing to read one would make brief
 // useless against the skills that exist.
 func TestParseKeepsWhatItDoesNotUnderstand(t *testing.T) {
 	s, err := parseSkill("d", []byte("---\nname: a\ndescription: b\nreferences:\n  - one\n  - two\n---\n\nbody\n"))

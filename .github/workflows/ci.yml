@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  # lore is a Unix filter and depends on it: a colon-separated search path,
+  # brief is a Unix filter and depends on it: a colon-separated search path,
   # a name that can never be a path, and a stand-in for ask that the tests
   # write as a shell script. Both platforms it claims to run on are tested
   # on every push.
@@ -57,6 +57,6 @@ jobs:
         with:
           go-version: stable
       - run: go install .
-      - run: lore version
-      - run: lore new -d "$RUNNER_TEMP" round-trip
-      - run: lore lint -strict "$RUNNER_TEMP/round-trip"
+      - run: brief version
+      - run: brief new -d "$RUNNER_TEMP" round-trip
+      - run: brief lint -strict "$RUNNER_TEMP/round-trip"

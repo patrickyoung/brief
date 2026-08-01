@@ -132,17 +132,17 @@ func TestPathElementThatIsNotThereIsNotAnError(t *testing.T) {
 	}
 	// An empty element is skipped rather than read as the working
 	// directory: $PATH's oldest footgun is not worth inheriting.
-	t.Setenv("LORE_PATH", string(os.PathListSeparator)+real)
-	if dirs := lorePath(); len(dirs) != 1 || dirs[0] != real {
-		t.Fatalf("lorePath %v", dirs)
+	t.Setenv("BRIEF_PATH", string(os.PathListSeparator)+real)
+	if dirs := briefPath(); len(dirs) != 1 || dirs[0] != real {
+		t.Fatalf("briefPath %v", dirs)
 	}
 }
 
 // TestDefaultPathIsTheOneDocumented. The default is a promise in the help
 // text, and the help text is tested against nothing else.
 func TestDefaultPathIsTheOneDocumented(t *testing.T) {
-	os.Unsetenv("LORE_PATH")
-	dirs := lorePath()
+	os.Unsetenv("BRIEF_PATH")
+	dirs := briefPath()
 	if len(dirs) == 0 || dirs[0] != filepath.Join(".claude", "skills") {
 		t.Fatalf("default path %v", dirs)
 	}

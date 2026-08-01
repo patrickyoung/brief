@@ -1,24 +1,25 @@
-# lore
+# brief
 
 Find the skill that fits a task. Print it on stdout.
 
 ```
-$ lore find "my page is slow"
+$ brief find "my page is slow"
 web-perf
 
-$ ask -S "$(lore cat web-perf)" "why is this slow?" < trace.json
+$ ask -S "$(brief cat web-perf)" "why is this slow?" < trace.json
 
-$ ask -S "$(ask system; lore cat pdf-processing)" "pull the tables from q3.pdf"
+$ ask -S "$(ask system; brief cat pdf-processing)" "pull the tables from q3.pdf"
 ```
 
 A skill is a directory with a `SKILL.md` in it: YAML frontmatter saying what
 it does and when to use it, then Markdown instructions. That is the [Agent
-Skills specification][spec], and it is all `lore` knows. It does not run
+Skills specification][spec], and it is all `brief` knows. It does not run
 skills, install them, or wrap an agent around them. It is the catalogue, as
 a filter — it lists, it chooses, it prints, and it stops there.
 
-[`ask`][ask] is the companion. `ask` has the model, `lore` has the know-how,
-and the seam between them is a pipe.
+[`ask`][ask] is the companion, and the name is the whole idea: **you brief
+the agent, then you ask it.** `ask` has the model, `brief` has the
+procedure, and the seam between them is a pipe.
 
 [spec]: https://agentskills.io/specification
 [ask]: https://github.com/patrickyoung/ask
@@ -26,14 +27,14 @@ and the seam between them is a pipe.
 ## Install
 
 ```
-go install github.com/patrickyoung/lore@latest
+go install github.com/patrickyoung/brief@latest
 ```
 
-Go 1.26 or newer, and a Unix. Nothing to configure: `lore` reads the skills
+Go 1.26 or newer, and a Unix. Nothing to configure: `brief` reads the skills
 you already have. If you use Claude Code, that is `~/.claude/skills` and
 `.claude/skills` in the project, and both are on the default path.
 
-`ask` is optional. Everything except `lore find -ask` works without it, and
+`ask` is optional. Everything except `brief find -ask` works without it, and
 without a network, a key, or an account.
 
 ## Progressive disclosure is a pipeline
@@ -43,26 +44,26 @@ descriptions at startup, one skill's instructions when it is chosen, and its
 bundled files only when they are needed. That is not a runtime. It is `ls`
 and `cat`.
 
-| level | the specification says | `lore` |
+| level | the specification says | `brief` |
 | --- | --- | --- |
-| 1 | name and description, ~100 tokens each, always loaded | `lore ls` |
-| 2 | the instructions, under 5k tokens, when the skill is chosen | `lore cat name` |
-| 3 | scripts, references and assets, only when needed | `lore ls name`, `lore cat name/references/FORMS.md` |
+| 1 | name and description, ~100 tokens each, always loaded | `brief ls` |
+| 2 | the instructions, under 5k tokens, when the skill is chosen | `brief cat name` |
+| 3 | scripts, references and assets, only when needed | `brief ls name`, `brief cat name/references/FORMS.md` |
 
 So the whole mechanism is two programs and a pipe:
 
 ```
-$ lore ls
+$ brief ls
 agents-sdk	Build AI agents on Cloudflare Workers using the Agents SDK. Load when …
 cloudflare	Comprehensive Cloudflare platform skill covering Workers, Pages, storage …
 durable-objects	Create and review Cloudflare Durable Objects. Use when building …
 …
 
-$ lore ls | ask -q 'which of these fits "my page is slow"? name only'
+$ brief ls | ask -q 'which of these fits "my page is slow"? name only'
 web-perf
 ```
 
-`lore find -ask` is that pipeline with the failure modes handled, and the
+`brief find -ask` is that pipeline with the failure modes handled, and the
 numbers are the reason it exists: those nine skills are **3.7 KB** as a
 catalogue and **88 KB** as instructions. Choosing costs about 900 tokens
 instead of 22,000, and 21,000 of those tokens would have been about the
@@ -71,15 +72,15 @@ eight skills that were wrong.
 ## The two ways to choose
 
 ```
-$ lore find "durable object websocket chat room"     # words: free, instant, offline
+$ brief find "durable object websocket chat room"     # words: free, instant, offline
 durable-objects
 
-$ lore find "make my website load faster"            # nothing matched
+$ brief find "make my website load faster"            # nothing matched
 $ echo $?
 1
 
-$ lore find -ask "make my website load faster"       # a model, via ask
-lore: web-perf · ask replay -check ~/.lore/find/20260801-205940-a0b7e2fa.jsonl
+$ brief find -ask "make my website load faster"       # a model, via ask
+brief: web-perf · ask replay -check ~/.brief/find/20260801-205940-a0b7e2fa.jsonl
 web-perf
 ```
 
@@ -98,10 +99,10 @@ Three things hold that flag together:
 
 - **The disclosure invariant.** `-ask` sends the catalogue and the task.
   Never a body, never a script, never a bundled file. The bytes on the
-  model's stdin are the bytes `lore ls` prints, and a test asserts exactly
+  model's stdin are the bytes `brief ls` prints, and a test asserts exactly
   that by recording what left the process.
 - **Every choice is replayable.** `-ask` runs `ask` in a fresh session of
-  its own under `~/.lore/find/`, never the conversation you are having, and
+  its own under `~/.brief/find/`, never the conversation you are having, and
   prints where it went. `ask replay -check` proves that session months
   later. A skill selection is a decision an agent made on your behalf, and
   it should be possible to read it back.
@@ -123,22 +124,22 @@ Yes and no are both ordinary answers a script branches on, so they are
 separated from *broken*:
 
 ```sh
-s=$(lore find -ask "$task") || { echo "no skill for that" >&2; exit 1; }
-ask -S "$(ask system; lore cat "$s")" "$task"
+s=$(brief find -ask "$task") || { echo "no skill for that" >&2; exit 1; }
+ask -S "$(ask system; brief cat "$s")" "$task"
 ```
 
 This is grep's contract, not `ask`'s. `ask` answers a question, where
-anything other than an answer is a failure; `lore` asks one, and "no" is a
+anything other than an answer is a failure; `brief` asks one, and "no" is a
 real answer. When they are composed, the difference matters exactly once —
-`lore find` returning 1 means nothing fit, and should not be retried.
+`brief find` returning 1 means nothing fit, and should not be retried.
 
 ## Where skills live
 
-`$LORE_PATH` is `$PATH`, for skills: colon-separated, searched left to
+`$BRIEF_PATH` is `$PATH`, for skills: colon-separated, searched left to
 right, first match wins. The default is
 
 ```
-.claude/skills : ~/.claude/skills : ~/.lore/skills
+.claude/skills : ~/.claude/skills : ~/.brief/skills
 ```
 
 so a skill in the project shadows the one in your home directory, the same
@@ -146,13 +147,13 @@ way `./bin/foo` shadows `/usr/bin/foo`. Shadowing is silent by design and
 visible on request:
 
 ```
-$ lore path -a cloudflare
+$ brief path -a cloudflare
 /Users/you/work/api/.claude/skills/cloudflare
 /Users/you/.claude/skills/cloudflare
 ```
 
 A skill can also be named by path, which is how you use one that is not
-installed anywhere yet: `lore cat ./draft`, `lore lint .`.
+installed anywhere yet: `brief cat ./draft`, `brief lint .`.
 
 ## lint
 
@@ -161,12 +162,12 @@ one usually fails silently — it loads with the wrong name, or it does not
 load at all, and nothing says why.
 
 ```
-$ lore lint
+$ brief lint
 ~/.claude/skills/cloudflare/SKILL.md:4: warning: unknown field "references"; …
 ~/.claude/skills/cloudflare/SKILL.md:11: warning: 320 file(s) in references/ …
 ~/.claude/skills/wrangler/SKILL.md:5: warning: the body is 919 lines (the
   specification asks for under 500); move detail into references/
-lore: 9 skill(s), 0 error(s), 6 warning(s)
+brief: 9 skill(s), 0 error(s), 6 warning(s)
 ```
 
 Errors are violations: a name that is not the directory name (the skill will
@@ -189,10 +190,10 @@ nothing and leaves the exit status, which is what a hook wants.
 ## Writing one
 
 ```
-$ lore new pdf-processing
+$ brief new pdf-processing
 pdf-processing/SKILL.md
-$ lore lint -strict pdf-processing
-lore: 1 skill(s), 0 error(s), 0 warning(s)
+$ brief lint -strict pdf-processing
+brief: 1 skill(s), 0 error(s), 0 warning(s)
 ```
 
 The scaffold passes `-strict` on the way out, because the first file an
@@ -200,28 +201,28 @@ author sees teaches them the shape.
 
 ## The prompt is a value
 
-`lore prompt` prints the system prompt `find -ask` sends, so extending it is
+`brief prompt` prints the system prompt `find -ask` sends, so extending it is
 ordinary shell rather than a fork:
 
 ```
-$ lore prompt | tail -1
+$ brief prompt | tail -1
 none is a real answer and often the right one. A skill loaded for a task it
 does not fit costs the agent its context and points it at the wrong
 procedure, which is worse than no skill at all.
 ```
 
-`lore help` prints every command and flag inside eighty columns, and
-`lore version` prints one number. Both go to stdout, so `lore help | less`
+`brief help` prints every command and flag inside eighty columns, and
+`brief version` prints one number. Both go to stdout, so `brief help | less`
 works and a misuse still leaves stdout empty for whatever was parsing it.
 
 ## Deliberately absent
 
 No install command, no registry, no marketplace, no cache, no config file,
-no daemon, no MCP server, and no way to execute a skill. `lore` prints
+no daemon, no MCP server, and no way to execute a skill. `brief` prints
 things. Running what it prints is the shell's job, and there is already a
 program for the part that needs a model.
 
 **[GUIDE.md](GUIDE.md)** has the recipes: the shell function that turns any
-task into a skilled `ask`, using `lore` with agents that are not `ask`,
+task into a skilled `ask`, using `brief` with agents that are not `ask`,
 keeping a project's skills honest in CI, and the three things that will bite
 you.

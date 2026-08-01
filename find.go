@@ -16,8 +16,8 @@ import (
 )
 
 // The disclosure invariant. Nothing but a name and a description ever
-// leaves this machine. `lore find -ask` sends the catalogue — level 1, the
-// same bytes `lore ls` prints — and the task, and never a body, a script,
+// leaves this machine. `brief find -ask` sends the catalogue — level 1, the
+// same bytes `brief ls` prints — and the task, and never a body, a script,
 // or a bundled file. Level 2 is read when you name a skill, level 3 when
 // you name a file inside one. That is what progressive disclosure means
 // when the levels are programs instead of promises, and it is the reason
@@ -81,11 +81,11 @@ func rank(cat []entry, task string) []scored {
 			common[t] = d*2 > len(cat)
 		}
 	}
-	n := float64(len(cat))
+	n, uw := float64(len(cat)), unique(want)
 	var out []scored
 	for i, e := range cat {
 		s := scored{entry: e}
-		for _, t := range unique(want) {
+		for _, t := range uw {
 			w, ok := docs[i][t]
 			if !ok || common[t] {
 				continue
@@ -95,11 +95,18 @@ func rank(cat []entry, task string) []scored {
 		}
 		// A name written out in the task is not a guess about what was
 		// meant. "run the web-perf skill" should not be outvoted by three
-		// common words somewhere else.
-		if strings.Contains(" "+strings.ToLower(task)+" ", " "+e.name+" ") {
+		// common words somewhere else, and it is evidence on its own.
+		named := strings.Contains(" "+strings.ToLower(task)+" ", " "+e.name+" ")
+		if named {
 			s.score += 10
 		}
-		if s.score > 0 {
+		// A match has to account for a fair share of what was asked. One
+		// word out of five is a coincidence, not a match — "an opened box"
+		// finds a skill that says "opened" about a file, and a rare word
+		// scores highly precisely because it is rare. So a single word
+		// counts only when it is most of the question: "pdf" is a whole
+		// task, and "opened" is one fifth of one.
+		if s.score > 0 && (named || len(s.hits) > 1 || len(s.hits) == len(uw)) {
 			out = append(out, s)
 		}
 	}
@@ -179,7 +186,7 @@ func unique(in []string) []string {
 
 // askPick hands the choice to a model by running ask.
 //
-// lore does not link a provider, hold a key, or open a socket. It runs the
+// brief does not link a provider, hold a key, or open a socket. It runs the
 // program next to it, the way a Unix program has always borrowed a
 // capability it does not own, and gets three things for free: every
 // provider ask learns, every credential ask already holds, and a session
@@ -195,14 +202,14 @@ func askPick(cat []entry, task string, n int, quiet bool) ([]string, error) {
 		fmt.Fprintf(&index, "%s\t%s\n", e.name, e.desc)
 	}
 
-	// A fresh session in lore's own directory, never the caller's current
+	// A fresh session in brief's own directory, never the caller's current
 	// conversation. Choosing a skill must not become a turn in the
 	// conversation the skill is about to be used for: it would answer the
 	// next question with a catalogue on its mind, and `ask` would silently
 	// be three turns deep in something the user never said.
-	sess := filepath.Join(loreDir(), "find", sessionID()+".jsonl")
+	sess := filepath.Join(briefDir(), "find", sessionID()+".jsonl")
 	args := []string{"-n", "-q", "-f", sess, "-S", selectPrompt(n)}
-	if m := os.Getenv("LORE_MODEL"); m != "" {
+	if m := os.Getenv("BRIEF_MODEL"); m != "" {
 		args = append(args, "-m", m)
 	}
 	args = append(args, "--", task)
@@ -215,7 +222,7 @@ func askPick(cat []entry, task string, n int, quiet bool) ([]string, error) {
 		// Not on $PATH, or named by a path that is not there: both mean the
 		// same thing to a caller, and neither is a reason to stop working.
 		if errors.Is(err, osexec.ErrNotFound) || errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("%s: not installed — plain `lore find` needs no model, or set $ASK", askBin())
+			return nil, fmt.Errorf("%s: not installed — plain `brief find` needs no model, or set $ASK", askBin())
 		}
 		if msg := lastLine(errb.String()); msg != "" {
 			return nil, fmt.Errorf("%s: %s", askBin(), msg)
@@ -225,7 +232,7 @@ func askPick(cat []entry, task string, n int, quiet bool) ([]string, error) {
 
 	// The answer is about to become a path, so it is checked against the
 	// catalogue rather than trusted. A model that invents a plausible skill
-	// name is a normal event; a model that invents one lore then opens is a
+	// name is a normal event; a model that invents one brief then opens is a
 	// vulnerability.
 	known := map[string]bool{}
 	for _, e := range cat {
@@ -254,7 +261,7 @@ func askPick(cat []entry, task string, n int, quiet bool) ([]string, error) {
 		if len(names) > 0 {
 			what = strings.Join(names, " ")
 		}
-		fmt.Fprintf(os.Stderr, "lore: %s · ask replay -check %s\n", what, sess)
+		fmt.Fprintf(os.Stderr, "brief: %s · ask replay -check %s\n", what, sess)
 	}
 	return names, nil
 }
@@ -273,7 +280,7 @@ func lastLine(s string) string {
 	return strings.TrimSpace(fields[len(fields)-1])
 }
 
-// askBin is the program lore runs to reach a model. $ASK names another one
+// askBin is the program brief runs to reach a model. $ASK names another one
 // — a wrapper that pins a cheap model, or the binary under test.
 func askBin() string {
 	if a := os.Getenv("ASK"); a != "" {
@@ -282,18 +289,18 @@ func askBin() string {
 	return "ask"
 }
 
-// loreDir is where lore keeps what it owns: $LORE_DIR, else ~/.lore. The
+// briefDir is where brief keeps what it owns: $BRIEF_DIR, else ~/.brief. The
 // only thing in it is the ask session behind each -ask choice, which is
 // there so a selection can be read back months later.
-func loreDir() string {
-	if d := os.Getenv("LORE_DIR"); d != "" {
+func briefDir() string {
+	if d := os.Getenv("BRIEF_DIR"); d != "" {
 		return d
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".lore"
+		return ".brief"
 	}
-	return filepath.Join(home, ".lore")
+	return filepath.Join(home, ".brief")
 }
 
 // sessionID mints an ask session name: sortable by time, unique by chance.

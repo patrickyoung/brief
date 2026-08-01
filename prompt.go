@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-// selectPrompt is the system prompt `lore find -ask` sends. It is a value,
-// not a secret — `lore prompt` prints it — so a house rule about which
+// selectPrompt is the system prompt `brief find -ask` sends. It is a value,
+// not a secret — `brief prompt` prints it — so a house rule about which
 // skills to prefer is ordinary shell:
 //
-//	lore find -ask -S "$(lore prompt; cat house-rules)" "..."
+//	brief find -ask -S "$(brief prompt; cat house-rules)" "..."
 //
 // Everything in it follows from one fact: the model is being handed a
 // catalogue and must answer with a name from it. It is not being asked to
