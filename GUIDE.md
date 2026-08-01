@@ -35,10 +35,58 @@ an `--append-system-prompt` for Claude Code, or a paste into anything else.
   If a skill says "run `scripts/extract.py`", something with tools has to
   do that. `ask` has no tools. See §8.
 - **Not a package manager.** There is no `lore install`. A skill is a
-  directory; `git clone` it where `$LORE_PATH` looks.
+  directory; `git clone` it where `$LORE_PATH` looks. See §3.5.
 - **Not smart by default.** `lore find` matches words. It is right about
   most of what people type and honest about the rest — it prints nothing
   rather than guessing. `-ask` is the flag for the rest.
+
+## 3.5. Bringing in your own skills
+
+There are three ways, and none of them involve `lore` owning anything.
+
+**Write one.** `lore new` scaffolds a skill that already passes
+`lint -strict`; put it anywhere on the path.
+
+```
+$ lore new -d ~/.lore/skills house-style
+~/.lore/skills/house-style/SKILL.md
+$ lore ls | grep house-style
+house-style	House style. Use when a task involves house-style, or when …
+```
+
+Edit the description first. It is the only part selection ever sees (§9).
+
+**Clone somebody else's.** A published catalogue is a directory of
+directories, so it goes on the path as one element:
+
+```
+$ git clone https://github.com/anthropics/skills ~/src/anthropic-skills
+$ export LORE_PATH=~/src/anthropic-skills/skills:$LORE_PATH
+$ lore ls | wc -l
+17
+```
+
+Those seventeen were never written with `lore` in mind, and nothing was
+modified to make them work. Ranking picked the right skill for eleven of
+twelve realistic tasks; the twelfth ("write an announcement for the team")
+missed because `internal-comms` never says the word "announcement" — which
+is a description to fix, or a `-ask` away.
+
+`lore lint` had opinions about them too, including one hard error: a
+description of 1068 characters, past the specification's cap of 1024. That
+is the kind of thing nothing else tells you, because a loader that rejects
+it does so quietly.
+
+**Point at what you already have.** If you use Claude Code, you are done —
+`.claude/skills` and `~/.claude/skills` are on the default path. `lore` is
+a reader; it does not need skills to be installed anywhere in particular,
+and `lore cat ./draft` works on a directory you are still writing.
+
+### Order matters
+
+`$LORE_PATH` is searched left to right and the first match wins, so put the
+catalogue you trust most on the left and your own overrides further left
+still. `lore path -a <name>` shows what is shadowing what (§11).
 
 ## 4. The pair
 
@@ -105,9 +153,10 @@ durable-objects
 
 Five of those run in 18 ms total. No network, no key, no account. The
 ranking weights each word by how rare it is across the installed
-catalogue, gives a skill's own name triple weight, and **discards any word
-most of the catalogue uses** rather than scoring it low. `-v` shows the
-work:
+catalogue, gives a skill's own name triple weight, takes both sides down to
+a crude root so a task saying "chart" finds a description saying
+"charting", and **discards any word most of the catalogue uses** rather
+than scoring it low. `-v` shows the work:
 
 ```
 $ lore find -v -n 3 "review my worker for bad practices"

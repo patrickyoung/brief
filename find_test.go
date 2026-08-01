@@ -274,6 +274,29 @@ func TestRankIsTheSameEveryRun(t *testing.T) {
 	}
 }
 
+// TestRankStemsBothSides. A description writes "charting" and a task
+// writes "chart". They are one word, and the ranking has to see that: the
+// alternative here is a tie broken alphabetically, which is a confidently
+// wrong answer wearing a plausible name.
+func TestRankStemsBothSides(t *testing.T) {
+	cat := entries(
+		"xlsx", "Spreadsheets: formulas, formatting, charting, cleaning messy data.",
+		"docx", "Word documents. Mentions a spreadsheet once, in passing.",
+	)
+	hits := rank(cat, "turn a spreadsheet into a chart")
+	if len(hits) == 0 || hits[0].name != "xlsx" {
+		t.Fatalf("ranking: %+v", hits)
+	}
+	for word, root := range map[string]string{
+		"charting": "chart", "tables": "table", "processing": "process",
+		"pdf": "pdf", "css": "css", "ring": "ring", "class": "class",
+	} {
+		if got := stem(word); got != root {
+			t.Errorf("stem(%q) = %q, want %q", word, got, root)
+		}
+	}
+}
+
 // TestRankHearsAName. "run the web-perf skill" is not a guess about what
 // was meant, and must not be outvoted by common words elsewhere.
 func TestRankHearsAName(t *testing.T) {

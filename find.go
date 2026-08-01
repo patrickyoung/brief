@@ -146,12 +146,23 @@ func tokenize(s string) []string {
 		if len(w) < 2 || stop[w] {
 			continue
 		}
-		if len(w) > 3 && strings.HasSuffix(w, "s") && !strings.HasSuffix(w, "ss") {
-			w = w[:len(w)-1]
-		}
-		out = append(out, w)
+		out = append(out, stem(w))
 	}
 	return out
+}
+
+// stem takes a word down to a crude root: the gerund a description writes
+// as "charting" and a task writes as "chart", and a plural. It is applied
+// to both sides, so it can only ever make two spellings of one word agree
+// — the worst it can do is fail to, which is where -ask comes in.
+func stem(w string) string {
+	if len(w) > 5 && strings.HasSuffix(w, "ing") {
+		w = w[:len(w)-3]
+	}
+	if len(w) > 3 && strings.HasSuffix(w, "s") && !strings.HasSuffix(w, "ss") {
+		w = w[:len(w)-1]
+	}
+	return w
 }
 
 func unique(in []string) []string {
