@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # lore is a Unix filter and depends on it: a colon-separated search path,
+  # a name that can never be a path, and a stand-in for ask that the tests
+  # write as a shell script. Both platforms it claims to run on are tested
+  # on every push.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          check-latest: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: vet
+        run: go vet ./...
+
+      - name: test
+        run: go test ./...
+
+      - name: test -race
+        run: go test -race ./...
+
+      - name: build
+        run: go build ./...
+
+  # The docs tests already prove the man page and the help text agree with
+  # the code. This proves the thing they cannot: that the module installs
+  # the way the README says it does, and that a skill it writes itself
+  # passes the check it applies to everyone else's.
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - run: go install .
+      - run: lore version
+      - run: lore new -d "$RUNNER_TEMP" round-trip
+      - run: lore lint -strict "$RUNNER_TEMP/round-trip"

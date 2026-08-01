@@ -1,0 +1,6 @@
+# The built binary, at the root only: an unanchored "lore" would also
+# swallow any directory that came to be named lore.
+/lore
+
+# Where find -ask keeps the ask session behind each choice.
+.lore/

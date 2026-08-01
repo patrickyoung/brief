@@ -1,0 +1,421 @@
+.TH LORE 1 "2026-08-01" "lore 0.1.0" "General Commands Manual"
+.SH NAME
+lore \- find the skill that fits a task
+.SH SYNOPSIS
+.B lore ls
+.RI [ ref ]
+.br
+.B lore cat
+.IR ref ...
+.br
+.B lore find
+.RI [ flags ]
+.IR task ...
+.br
+.B lore lint
+.RI [ flags ]
+.RI [ path ...]
+.br
+.B lore new
+.RI [ flags ]
+.I name
+.br
+.B lore path
+.RI [ flags ]
+.I name
+.br
+.B lore prompt
+.RI [ flags ]
+.br
+.B lore version
+.br
+.B lore help
+.SH DESCRIPTION
+A skill is a directory holding a
+.IR SKILL.md :
+YAML frontmatter saying what it does and when to use it, then Markdown
+instructions. That is the Agent Skills specification, and it is all
+.B lore
+knows.
+.PP
+.B lore
+is the catalogue of those directories, as a filter. It lists them, it
+chooses between them, and it prints one. It does not install a skill, run
+one, or wrap an agent around one; what it prints is text, and what happens
+to that text is the shell\(aqs business. The companion program
+.BR ask (1)
+is the one that needs a model.
+.PP
+The specification asks agents to disclose a skill progressively: names and
+descriptions at startup, one skill\(aqs instructions when it is chosen, and
+its bundled files only when they are needed. Those three levels are three
+commands here.
+.B lore ls
+is level one,
+.B lore cat
+of a name is level two, and
+.B lore cat
+of a path inside a skill is level three. Nothing reads a level that was not
+asked for, and
+.B lore find \-ask
+sends level one and never anything else.
+.PP
+A
+.I ref
+is a skill name, or a name and a path inside that skill, as in
+.IR pdf\-processing/references/FORMS.md .
+Names resolve on
+.SM $LORE_PATH
+left to right, first match wins, exactly like
+.SM $PATH.
+A name may hold only lowercase letters, digits and single hyphens, so it
+can never be a path; anything else is read as a filesystem path, and the
+skill is then the nearest directory at or above it holding a
+.IR SKILL.md .
+That is what lets
+.B lore lint .
+and
+.B lore cat ./draft
+work on a skill that is not installed anywhere yet.
+.SH COMMANDS
+.TP
+.B lore ls \fR[\fIref\fR]
+With no argument, print the catalogue: one skill per line, as a name, a
+tab, and its description flattened to a single line. This is level one, it
+is what
+.B find \-ask
+puts in front of a model, and it is the shape
+.BR cut (1)
+reads. With a
+.IR ref ,
+print the files that skill bundles instead, as paths relative to the skill,
+sorted \(em exactly the paths
+.B lore cat
+will accept.
+.TP
+.B lore cat \fIref\fR...
+Print instructions. A bare name gives the body with the frontmatter
+stripped, which is what belongs in a prompt: the name and description were
+how the skill was chosen, and repeating them spends context the
+instructions are about to need. Naming the file instead
+.RI ( name/SKILL.md )
+gives the file, byte for byte. Several refs are concatenated, because it is
+.BR cat (1).
+A path inside a skill may not leave that skill.
+.TP
+.B lore find \fR[\fIflags\fR] \fItask\fR...
+Print the name of the skill that fits a task, best first, and exit 1 if
+nothing does. The task is the arguments joined with spaces; with no
+arguments it is read from standard input, when standard input is not a
+terminal. Arguments win outright rather than composing with standard input,
+so
+.B find
+inside a loop that inherited a pipe cannot wait forever for a task nobody
+meant to send.
+.IP
+By default the ranking is a weighted word match over names and
+descriptions: a word only one skill uses decides, a word most of them use
+is discarded rather than scored low, and a skill named outright in the task
+wins. It is free, instant and offline, and it says nothing rather than
+guessing.
+.B \-ask
+hands the choice to a model instead, by running
+.BR ask (1).
+.TP
+.B lore lint \fR[\fIflags\fR] [\fIpath\fR...]
+Check skills against the specification and print what is wrong, one finding
+per line, in the shape a compiler uses. An argument may be a skill
+directory, a directory of skills, or the
+.I SKILL.md
+itself; with no argument every skill on
+.SM $LORE_PATH
+is checked.
+.IP
+Errors are violations of a rule: a name that is not the directory name, a
+name over 64 characters or holding anything but lowercase letters, digits
+and single hyphens, a description that is missing, empty, or over 1024
+characters, a
+.I compatibility
+over 500 characters, a
+.I metadata
+that is not a mapping of strings, an
+.I allowed\-tools
+that is not one string, a duplicate key that YAML silently drops, an empty
+body, and a file the instructions reference that is not there.
+.IP
+Warnings are the specification\(aqs advice and its silences: an unknown
+frontmatter field, a body past 500 lines or roughly 5000 tokens, a
+description that says what a skill does but never when to use it, a
+description long enough to be expensive at startup, a reference more than
+one level deep, and a bundled file no instruction ever mentions \(em which
+no agent will open, because no agent reads a directory it was not told
+about.
+.TP
+.B lore new \fR[\fIflags\fR] \fIname\fR
+Write a new skill and print the path to its
+.IR SKILL.md .
+The scaffold passes
+.B lore lint \-strict
+as written, because the first file an author sees teaches them the shape.
+An existing file is never overwritten without
+.BR \-f .
+.TP
+.B lore path \fR[\fIflags\fR] \fIname\fR
+Print the directory a name resolves to, or exit 1 if it resolves to
+nothing. With
+.B \-a
+print every directory on the path that holds a skill of that name, nearest
+first, which is the only way to tell a shadowed skill from an ignored one.
+.TP
+.B lore prompt \fR[\fIflags\fR]
+Print the system prompt
+.B find \-ask
+sends. It is a value rather than a secret, so extending it is ordinary
+shell:
+.B lore find \-ask
+uses this text, and
+.B lore prompt | cat \- house\-rules
+is how you would build a longer one.
+.TP
+.B lore version
+Print the version.
+.B \-V
+and
+.B \-\-version
+do the same.
+.TP
+.B lore help
+Print a summary of everything above.
+.B \-h
+and
+.B \-\-help
+do the same. Help that was asked for goes to standard output; a misuse goes
+to standard error and leaves standard output empty.
+.SH OPTIONS
+.SS find
+.TP
+.B \fB\-ask\fR
+Choose with a model, by running
+.BR ask (1),
+instead of by matching words. The catalogue goes on
+.BR ask (1)\(aqs
+standard input and the task in its arguments. The run is a fresh session of
+its own under
+.SM $LORE_DIR/find
+\(em never the conversation the caller is having \(em and its path is
+printed on standard error, so
+.B ask replay \-check
+can prove the choice afterwards. A name that is not in the catalogue is
+refused rather than opened.
+.TP
+.B \fB\-n\fR \fInum\fR
+Print at most
+.I num
+names, best first. The default is 1.
+.TP
+.B \fB\-v\fR
+Explain the ranking on standard error: every candidate, its score, and the
+words that earned it.
+.TP
+.B \fB\-q\fR
+No progress on standard error.
+.SS lint
+.TP
+.B \fB\-strict\fR
+Treat warnings as errors, so a build fails on advice. This is what
+continuous integration wants; a working directory usually does not.
+.TP
+.B \fB\-q\fR
+Print nothing. The exit status is the answer.
+.SS new
+.TP
+.B \fB\-d\fR \fIdir\fR
+Create the skill under
+.IR dir .
+The default is the working directory.
+.TP
+.B \fB\-f\fR
+Overwrite an existing
+.IR SKILL.md .
+.SS path
+.TP
+.B \fB\-a\fR
+Print every directory holding the name, not just the first.
+.SS prompt
+.TP
+.B \fB\-n\fR \fInum\fR
+The limit the printed prompt states, matching
+.B find \-n
+.IR num .
+.SH ENVIRONMENT
+.TP
+.SM LORE_PATH
+Where skills live: a list of directories separated by the path list
+separator, searched left to right, first match wins. Empty elements are
+skipped rather than read as the working directory. The default is
+.IR .claude/skills ,
+.IR ~/.claude/skills ,
+.IR ~/.lore/skills .
+.TP
+.SM LORE_MODEL
+The model
+.B find \-ask
+uses, passed to
+.BR ask (1)
+as
+.BR \-m .
+Unset, the model is whatever
+.BR ask (1)
+would use on its own. Set it when selection should run on something cheaper
+than the model doing the work.
+.TP
+.SM LORE_DIR
+Where
+.B lore
+keeps what it owns. The only thing in it is the
+.BR ask (1)
+session behind each
+.B \-ask
+choice, under
+.IR find/ .
+The default is
+.IR ~/.lore .
+.TP
+.SM ASK
+The
+.BR ask (1)
+binary to run. The default is
+.IR ask ,
+found on
+.SM $PATH.
+A wrapper that pins a cheap model belongs here.
+.SH FILES
+.TP
+.I <skill>/SKILL.md
+The skill: frontmatter and instructions. Required.
+.TP
+.I <skill>/scripts/, <skill>/references/, <skill>/assets/
+The specification\(aqs bundled directories: level three.
+.B lore
+lists them and prints them, and never runs them.
+.TP
+.I ~/.lore/find/*.jsonl
+One
+.BR ask (1)
+session per
+.B find \-ask
+choice, kept so the choice can be read back.
+.SH EXIT STATUS
+.TP
+.B 0
+Yes. A skill was found, a listing was not empty, a check was clean.
+.TP
+.B 1
+No. Nothing matched, a name resolved to nothing, or
+.B lint
+had something to say. This is an ordinary answer, not a failure, and a
+script should branch on it.
+.TP
+.B 2
+Error. A bad invocation, an unreadable directory, a reference that escapes
+its skill, or
+.BR ask (1)
+failing.
+.PP
+This is the contract of
+.BR grep (1)
+rather than that of
+.BR ask (1),
+because
+.B lore
+asks a question where no is a real answer, and something being broken has
+to be distinguishable from it.
+.SH EXAMPLES
+Choose a skill and hand it to
+.BR ask (1)
+as a system prompt, keeping ask\(aqs own default underneath it:
+.PP
+.RS
+.nf
+ask \-S "$(ask system; lore cat pdf\-processing)" "pull the tables from q3.pdf"
+.fi
+.RE
+.PP
+The same thing for whatever task arrives, as a shell function:
+.PP
+.RS
+.nf
+skilled() {
+  s=$(lore find \-ask \-q "$*") || { ask "$@"; return; }
+  ask \-S "$(ask system; lore cat "$s")" "$@"
+}
+.fi
+.RE
+.PP
+Progressive disclosure by hand, which is all
+.B find \-ask
+automates:
+.PP
+.RS
+.nf
+lore ls | ask \-q "which of these fits \(dq$task\(dq? name only"
+.fi
+.RE
+.PP
+Keep a project honest, in continuous integration:
+.PP
+.RS
+.nf
+lore lint \-strict .claude/skills
+.fi
+.RE
+.PP
+Print the level\-three files a skill bundles, then read one:
+.PP
+.RS
+.nf
+lore ls web\-perf
+lore cat web\-perf/references/metrics.md
+.fi
+.RE
+.PP
+Feed a skill to an agent that is not
+.BR ask (1):
+.PP
+.RS
+.nf
+claude \-\-append\-system\-prompt "$(lore cat code\-review)" \-p "review this diff"
+.fi
+.RE
+.SH DIAGNOSTICS
+Findings from
+.B lint
+go to standard output, because they are what was asked for; everything else
+.B lore
+says about its own progress goes to standard error. A run that found
+nothing prints nothing to standard output, so a name and a diagnostic can
+never be confused by whatever is reading the pipe.
+.SH SEE ALSO
+.BR ask (1),
+.BR grep (1),
+.BR cut (1),
+.BR xargs (1)
+.PP
+The Agent Skills specification: https://agentskills.io/specification
+.SH CAVEATS
+.B lore find
+without
+.B \-ask
+matches words. It cannot know that a scanned invoice is a PDF problem, and
+it will say so by printing nothing rather than by guessing.
+.PP
+.B lore find \-ask
+costs a model call and takes about a second. In a loop over many tasks that
+is the wall clock; rank without it first, and fall back.
+.PP
+Anything a model writes is untrusted.
+.B lore
+checks the name it gets back against the catalogue, but the instructions a
+skill contains were written by whoever wrote the skill, and
+.B lore cat
+prints them without judgement.
