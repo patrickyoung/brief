@@ -263,6 +263,57 @@ Under 50 characters, imperative, blank line, one paragraph of why. The
 rules came from a file on disk that anybody on the team can edit, and the
 model never saw the other eight skills.
 
+## 7.5. Does it actually change the answer?
+
+Three A/B runs against skills from `anthropics/skills` — nothing written
+for `lore` or for `ask`, nothing modified. Same model, `-n` on both sides,
+identical question; the only difference is `lore cat X` in the system
+prompt.
+
+**A reference skill.** `brand-guidelines`, 2.2 KB:
+
+```
+$ ask -n -q -S "$(ask system)" \
+    'CSS custom properties for the brand palette. Hex values only.'
+  --brand-primary: #2563EB;      <- invented, a generic Tailwind palette
+  --brand-accent:  #F59E0B;
+
+$ ask -n -q -S "$(ask system; lore cat brand-guidelines)" \
+    'CSS custom properties for the brand palette. Hex values only.'
+  --color-orange:  #d97757;      <- the actual brand values
+  --color-blue:    #6a9bcc;
+```
+
+**A large reference skill.** `claude-api`, 72 KB, asked which model is
+cheapest for high-volume classification and what it costs:
+
+| | answer |
+| --- | --- |
+| plain `ask` | `claude-3-haiku-20240307` — $0.25 / M input |
+| with the skill | `claude-haiku-4-5` — $1.00 / M input |
+
+The first is a two-year-old model at a price that no longer applies. The
+second matches the skill's own table exactly. That one cost 18k input
+tokens, and `lore lint` will tell you why: the body is roughly 17,605
+tokens against the specification's 5,000, all of it loaded the moment the
+skill is chosen. Worth it for that question; not worth it in a loop.
+
+**A tool-choreography skill.** `pdf`, 8 KB, asked to extract tables:
+
+```
+I can't access report.pdf from the current input. To extract all tables:
+
+import pdfplumber
+import pandas as pd
+...
+```
+
+Correct, and useless as an answer — because `ask` has no filesystem. It
+degraded into a program rather than a result, which is the next section.
+
+The pattern: **knowledge, reference and judgement skills work outright.
+Skills that choreograph tools give you the program instead of the answer.**
+
 ## 8. Skills assume tools. `ask` has none.
 
 This is the one real seam in the pair, and it is better to know it now.
