@@ -89,3 +89,18 @@ a skill, running one, a registry or marketplace client, a cache, a config
 file, a daemon, an MCP server, an index format, a second way to name a
 skill besides its directory, and any provider code at all. If `brief` needs
 a model, it runs `ask`.
+
+Two that arrive wearing a good reason, and are still the same thing:
+
+- **counting how often a skill is chosen.** `hone` prints how many lessons
+  a skill holds, and lessons-per-use would be the truer gauge — but a use
+  counter is a file `brief` writes on every `find`, which is a cache, which
+  is the entry above. `brief` reads the catalogue and prints; it has no
+  state and a program with no state cannot corrupt any;
+- **execution policy in frontmatter** — a `check:`, `tools:` or `model:`
+  key, so `ply -s` could load a procedure and its contract together. It is
+  the most attractive idea anyone brings here and it may one day be right,
+  but it makes `brief` know how things are run, and it creates a second way
+  to name a tool. A capability is already a file: a shell script that ends
+  in `exec ply ...`, named, versioned, and on `$PATH`. Use that until it
+  demonstrably hurts, and bring the evidence.
