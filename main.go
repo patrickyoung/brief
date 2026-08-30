@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 // The exit contract, in one place. It is grep's, not ask's: brief answers
 // questions with a yes or a no, and both are ordinary outcomes a script
@@ -77,6 +77,7 @@ flags:
 env: BRIEF_PATH  where skills live (default .claude/skills, ~/.claude/skills,
        ~/.brief/skills), searched left to right
      BRIEF_MODEL the model find -ask uses, when it should not be $ASK_MODEL
+     BRIEF_EFFORT the reasoning effort find -ask passes literally to ask
      BRIEF_DIR   where find -ask keeps its ask sessions (default ~/.brief)
      ASK         the ask binary to run (default: ask, found on $PATH)
 exit: 0 yes · 1 no — nothing matched, or lint had something to say · 2 error
@@ -181,17 +182,23 @@ func cmdCat(args []string) int {
 	// composed prompt, followed by an error on a stream nobody was reading,
 	// is a skill that silently lost its second half — and the shell has
 	// already put it in a variable by then.
-	type piece struct{ dir, rel string }
+	type piece struct {
+		body string
+		file *os.File
+	}
 	var pieces []piece
+	defer func() {
+		for _, p := range pieces {
+			if p.file != nil {
+				p.file.Close()
+			}
+		}
+	}()
 	for _, ref := range fs.Args() {
 		dir, rel, err := resolve(ref)
 		if err != nil {
 			return fail(err)
 		}
-		pieces = append(pieces, piece{dir, rel})
-	}
-	for _, p := range pieces {
-		dir, rel := p.dir, p.rel
 		if rel == "" {
 			s, err := readSkill(dir)
 			if err != nil {
@@ -201,15 +208,21 @@ func cmdCat(args []string) int {
 			if body == "" {
 				return fail(fmt.Errorf("%s: no instructions after the frontmatter", s.path()))
 			}
-			fmt.Print(body)
+			pieces = append(pieces, piece{body: body})
 			continue
 		}
-		f, err := os.Open(filepath.Join(dir, rel))
+		f, err := openInsideSkill(dir, rel)
 		if err != nil {
 			return fail(err)
 		}
-		_, err = io.Copy(os.Stdout, f)
-		f.Close()
+		pieces = append(pieces, piece{file: f})
+	}
+	for _, p := range pieces {
+		if p.file == nil {
+			fmt.Print(p.body)
+			continue
+		}
+		_, err := io.Copy(os.Stdout, p.file)
 		if err != nil {
 			return fail(err)
 		}

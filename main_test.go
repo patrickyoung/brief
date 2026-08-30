@@ -244,6 +244,33 @@ func TestRefsCannotLeaveTheSkill(t *testing.T) {
 	}
 }
 
+func TestRefsCannotLeaveThroughSymlinks(t *testing.T) {
+	root := oneSkill(t)
+	withPath(t, root)
+	skillDir := filepath.Join(root, "pdf-processing")
+	secret := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(secret, []byte("private\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	escape := filepath.Join(skillDir, "references", "ESCAPE.md")
+	if err := os.Symlink(secret, escape); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errs := exec(t, "", "cat", "pdf-processing", "pdf-processing/references/ESCAPE.md")
+	if code != exitErr || out != "" || !strings.Contains(errs, "ESCAPE.md") {
+		t.Fatalf("symlink escape: code=%d stdout=%q stderr=%q", code, out, errs)
+	}
+
+	insideLink := filepath.Join(skillDir, "references", "FORMS-LINK.md")
+	if err := os.Symlink("FORMS.md", insideLink); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errs = exec(t, "", "cat", "pdf-processing/references/FORMS-LINK.md")
+	if code != exitYes || out != "form fields\n" || errs != "" {
+		t.Fatalf("rooted in-skill symlink: code=%d stdout=%q stderr=%q", code, out, errs)
+	}
+}
+
 // TestFindReadsStdinOnlyWhenItHasTo. A task can arrive in a pipe, which is
 // what makes brief a filter rather than a command that happens to take
 // words. A task in argv ends the question there: reading a stdin nobody
@@ -467,7 +494,7 @@ func TestDocsCoverEveryFlag(t *testing.T) {
 // a setting that does not exist.
 func TestEnvVarsAreDocumented(t *testing.T) {
 	man := read(t, "brief.1")
-	for _, v := range []string{"BRIEF_PATH", "BRIEF_MODEL", "BRIEF_DIR", "ASK"} {
+	for _, v := range []string{"BRIEF_PATH", "BRIEF_MODEL", "BRIEF_EFFORT", "BRIEF_DIR", "ASK"} {
 		if !strings.Contains(usageText, v) {
 			t.Errorf("brief help does not document %s", v)
 		}

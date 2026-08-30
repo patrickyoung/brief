@@ -1,4 +1,4 @@
-.TH BRIEF 1 "2026-08-01" "brief 0.1.0" "General Commands Manual"
+.TH BRIEF 1 "2026-08-30" "brief 0.1.1" "General Commands Manual"
 .SH NAME
 brief \- find the skill that fits a task
 .SH SYNOPSIS
@@ -197,9 +197,12 @@ to standard error and leaves standard output empty.
 .B \fB\-ask\fR
 Choose with a model, by running
 .BR ask (1),
-instead of by matching words. The catalogue goes on
+instead of by matching words. The catalogue is passed as a private text
+attachment containing the exact catalogue bytes, and the task is passed as
+user text on
 .BR ask (1)\(aqs
-standard input and the task in its arguments. The run is a fresh session of
+standard input. The task therefore appears in neither process arguments nor
+the selector system prompt. The run is a fresh session of
 its own under
 .SM $BRIEF_DIR/find
 \(em never the conversation the caller is having \(em and its path is
@@ -268,6 +271,15 @@ Unset, the model is whatever
 .BR ask (1)
 would use on its own. Set it when selection should run on something cheaper
 than the model doing the work.
+.TP
+.SM BRIEF_EFFORT
+The reasoning effort
+.B find \-ask
+passes literally to
+.BR ask (1)
+with
+.BR \-effort .
+Unset, Ask chooses its normal default.
 .TP
 .SM BRIEF_DIR
 Where

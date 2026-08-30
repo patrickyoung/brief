@@ -98,9 +98,11 @@ a model closes that gap for about a tenth of a cent.
 Three things hold that flag together:
 
 - **The disclosure invariant.** `-ask` sends the catalogue and the task.
-  Never a body, never a script, never a bundled file. The bytes on the
-  model's stdin are the bytes `brief ls` prints, and a test asserts exactly
-  that by recording what left the process.
+  Never a body, never a script, never a bundled file. The catalogue is a
+  private, stable-named text attachment containing exactly the bytes `brief
+  ls` prints; the task is user text on Ask's stdin. A test records both.
+  Task text therefore appears in neither process argv nor the higher-priority
+  selector system prompt.
 - **Every choice is replayable.** `-ask` runs `ask` in a fresh session of
   its own under `~/.brief/find/`, never the conversation you are having, and
   prints where it went. `ask replay -check` proves that session months

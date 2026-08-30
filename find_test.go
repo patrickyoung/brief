@@ -20,6 +20,16 @@ func fakeAsk(t *testing.T, reply string, code int) string {
 	}
 	script := "#!/bin/sh\n" +
 		"printf '%s\\n' \"$@\" > \"" + dir + "/argv\"\n" +
+		": > \"" + dir + "/system\"\n" +
+		": > \"" + dir + "/attachment\"\n" +
+		"next=\n" +
+		"for arg do\n" +
+		"  case $next in\n" +
+		"    system) printf '%s' \"$arg\" > \"" + dir + "/system\"; next=; continue ;;\n" +
+		"    attachment) cat \"$arg\" > \"" + dir + "/attachment\"; next=; continue ;;\n" +
+		"  esac\n" +
+		"  case $arg in -S) next=system ;; -a) next=attachment ;; esac\n" +
+		"done\n" +
 		"cat > \"" + dir + "/stdin\"\n" +
 		"cat \"" + dir + "/reply\"\n" +
 		"echo 'ask: something went wrong' >&2\n" +
@@ -78,7 +88,7 @@ func TestFindAskSendsLevelOneAndNothingElse(t *testing.T) {
 		t.Fatalf("code %d, stdout %q", code, out)
 	}
 
-	sent := recorded(t, dir, "stdin") + recorded(t, dir, "argv")
+	sent := recorded(t, dir, "attachment") + recorded(t, dir, "stdin") + recorded(t, dir, "argv") + recorded(t, dir, "system")
 	if strings.Contains(sent, secretBody) {
 		t.Fatalf("a skill body reached the model:\n%s", sent)
 	}
@@ -87,11 +97,14 @@ func TestFindAskSendsLevelOneAndNothingElse(t *testing.T) {
 			t.Fatalf("%q never reached the model:\n%s", want, sent)
 		}
 	}
-	// The catalogue on stdin is the same bytes ls prints. If those two ever
+	// The catalogue attachment is the same bytes ls prints. If those two ever
 	// drift, `brief ls | ask ...` stops being the thing brief automates.
 	_, listing, _ := exec(t, "", "ls")
-	if recorded(t, dir, "stdin") != listing {
-		t.Fatalf("what was sent is not what ls prints:\n%q\n%q", recorded(t, dir, "stdin"), listing)
+	if recorded(t, dir, "attachment") != listing {
+		t.Fatalf("what was sent is not what ls prints:\n%q\n%q", recorded(t, dir, "attachment"), listing)
+	}
+	if task := recorded(t, dir, "stdin"); task != "my page is slow" {
+		t.Fatalf("task stdin=%q", task)
 	}
 }
 
@@ -103,6 +116,7 @@ func TestFindAskKeepsItsOwnConversation(t *testing.T) {
 	withPath(t, catalogueTree(t))
 	dir := fakeAsk(t, "web-perf\n", 0)
 	t.Setenv("BRIEF_MODEL", "anthropic/cheap-model")
+	t.Setenv("BRIEF_EFFORT", "low")
 
 	if code, _, _ := exec(t, "", "find", "-ask", "-q", "slow page"); code != exitYes {
 		t.Fatalf("code %d", code)
@@ -122,16 +136,23 @@ func TestFindAskKeepsItsOwnConversation(t *testing.T) {
 	if !flags["-m"] || !flags["anthropic/cheap-model"] {
 		t.Error("BRIEF_MODEL did not reach ask")
 	}
+	if !flags["-effort"] || !flags["low"] {
+		t.Error("BRIEF_EFFORT did not reach ask")
+	}
 	if !strings.HasPrefix(sess, filepath.Join(os.Getenv("BRIEF_DIR"), "find")) {
 		t.Errorf("the session is not brief's own: %q", sess)
 	}
 	if !strings.HasSuffix(sess, ".jsonl") {
 		t.Errorf("the session is not a session: %q", sess)
 	}
-	// The task is last and behind --, so a task that begins with a dash is
-	// a task and not a flag.
-	if argv[len(argv)-1] != "slow page" || argv[len(argv)-2] != "--" {
-		t.Errorf("the task did not arrive as a task: %v", argv)
+	if strings.Contains(recorded(t, dir, "argv"), "slow page") {
+		t.Errorf("sensitive task leaked through process argv: %v", argv)
+	}
+	if task := recorded(t, dir, "stdin"); task != "slow page" {
+		t.Errorf("the task did not reach Ask as user text: %q", task)
+	}
+	if system := recorded(t, dir, "system"); strings.Contains(system, "slow page") || !strings.Contains(system, "choosing which skill") {
+		t.Errorf("selector system prompt has wrong precedence/content: %q", system)
 	}
 }
 

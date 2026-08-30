@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -100,19 +101,20 @@ func (s *skill) path() string { return filepath.Join(s.dir, "SKILL.md") }
 // and a linter that only ever sees perfect input has nothing to say.
 func readSkill(dir string) (*skill, error) {
 	p := filepath.Join(dir, "SKILL.md")
-	fi, err := os.Stat(p)
+	f, err := openInsideSkill(dir, "SKILL.md")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("%s: no SKILL.md", dir)
 		}
 		return nil, err
 	}
-	if fi.Size() > maxSkill {
-		return nil, fmt.Errorf("%s is larger than %d MB", p, maxSkill>>20)
-	}
-	data, err := os.ReadFile(p)
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, maxSkill+1))
 	if err != nil {
 		return nil, err
+	}
+	if len(data) > maxSkill {
+		return nil, fmt.Errorf("%s is larger than %d MB", p, maxSkill>>20)
 	}
 	return parseSkill(dir, data)
 }

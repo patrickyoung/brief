@@ -190,9 +190,10 @@ func unique(in []string) []string {
 // program next to it, the way a Unix program has always borrowed a
 // capability it does not own, and gets three things for free: every
 // provider ask learns, every credential ask already holds, and a session
-// log that makes the choice auditable afterwards. The catalogue goes on
-// stdin, which is where ask takes evidence; the task goes in argv, which is
-// where ask takes the question.
+// log that makes the choice auditable afterwards. The catalogue is a
+// private, stable-named text attachment and the task goes on stdin. Both
+// therefore remain user-level message data, while sensitive task text is
+// absent from process argv and the selector system prompt.
 func askPick(cat []entry, task string, n int, quiet bool) ([]string, error) {
 	if len(cat) == 0 {
 		return nil, nil
@@ -208,14 +209,24 @@ func askPick(cat []entry, task string, n int, quiet bool) ([]string, error) {
 	// next question with a catalogue on its mind, and `ask` would silently
 	// be three turns deep in something the user never said.
 	sess := filepath.Join(briefDir(), "find", sessionID()+".jsonl")
-	args := []string{"-n", "-q", "-f", sess, "-S", selectPrompt(n)}
+	tmp, err := os.MkdirTemp("", "brief-find-")
+	if err != nil {
+		return nil, fmt.Errorf("create private selector input: %w", err)
+	}
+	defer os.RemoveAll(tmp)
+	cataloguePath := filepath.Join(tmp, "catalogue.txt")
+	if err := os.WriteFile(cataloguePath, index.Bytes(), 0o600); err != nil {
+		return nil, fmt.Errorf("write private selector catalogue: %w", err)
+	}
+	args := []string{"-n", "-q", "-f", sess, "-S", selectPrompt(n), "-a", cataloguePath}
 	if m := os.Getenv("BRIEF_MODEL"); m != "" {
 		args = append(args, "-m", m)
 	}
-	args = append(args, "--", task)
-
+	if effort := os.Getenv("BRIEF_EFFORT"); effort != "" {
+		args = append(args, "-effort", effort)
+	}
 	cmd := osexec.Command(askBin(), args...)
-	cmd.Stdin = &index
+	cmd.Stdin = strings.NewReader(task)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {

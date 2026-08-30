@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 )
 
 // entry is one line of the catalogue: level 1 of the specification's
@@ -194,6 +195,44 @@ func inside(rel string) (string, error) {
 		return "", errors.New("a path inside a skill cannot leave it")
 	}
 	return c, nil
+}
+
+// openInsideSkill opens one regular file through an os.Root anchored at the
+// selected skill. Root follows an explicitly named symlink only while it
+// remains beneath that anchor, and refuses absolute or relative escapes even
+// if a path component changes during resolution. O_NONBLOCK lets us inspect
+// and reject a FIFO or device without waiting on it.
+func openInsideSkill(dir, rel string) (*os.File, error) {
+	rel, err := inside(rel)
+	if err != nil {
+		return nil, err
+	}
+	if rel == "" {
+		return nil, errors.New("empty path inside skill")
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("open skill root %s: %w", dir, err)
+	}
+	f, openErr := root.OpenFile(filepath.FromSlash(rel), os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	closeErr := root.Close()
+	if openErr != nil {
+		return nil, fmt.Errorf("open %s: %w", filepath.Join(dir, filepath.FromSlash(rel)), openErr)
+	}
+	if closeErr != nil {
+		f.Close()
+		return nil, fmt.Errorf("close skill root %s: %w", dir, closeErr)
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("inspect %s: %w", filepath.Join(dir, filepath.FromSlash(rel)), err)
+	}
+	if !info.Mode().IsRegular() {
+		f.Close()
+		return nil, fmt.Errorf("%s is not a regular file", filepath.Join(dir, filepath.FromSlash(rel)))
+	}
+	return f, nil
 }
 
 // contents lists the files a skill bundles — level 3 — as paths relative

@@ -205,7 +205,10 @@ not want your best model:
 
 ```sh
 export BRIEF_MODEL=anthropic/claude-haiku-4-5-20251001
+export BRIEF_EFFORT=low
 ```
+
+Both values are passed literally to Ask; unset values keep Ask's defaults.
 
 `$ASK` points at the binary, so a wrapper that pins anything at all works
 too.
